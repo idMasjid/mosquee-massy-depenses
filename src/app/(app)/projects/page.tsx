@@ -4,6 +4,7 @@ import { getBudgetOverview } from "@/lib/aggregations";
 import { formatEUR } from "@/lib/money";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { NewBudgetLineDialog } from "@/components/projects/new-budget-line-dialog";
+import { EditBudgetLineDialog } from "@/components/projects/edit-budget-line-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function ProjectsPage() {
@@ -82,6 +83,7 @@ export default async function ProjectsPage() {
                         <TableHead className="text-right">Réalisé</TableHead>
                         <TableHead className="text-right">Engagé</TableHead>
                         <TableHead className="text-right">Restant</TableHead>
+                        {canManage && <TableHead className="w-10" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -97,6 +99,20 @@ export default async function ProjectsPage() {
                           >
                             {formatEUR(line.remainingCents)}
                           </TableCell>
+                          {canManage && (
+                            <TableCell>
+                              <EditBudgetLineDialog
+                                line={{
+                                  id: line.budgetLineId,
+                                  projectId: line.projectId,
+                                  rubrique: line.rubrique,
+                                  productTitle: line.productTitle,
+                                  budgetedAmountHTCents: line.budgetedAmountHTCents,
+                                }}
+                                allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
+                              />
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -107,8 +123,24 @@ export default async function ProjectsPage() {
                 <div className="flex flex-col gap-2 p-3 md:hidden">
                   {lines.map((line) => (
                     <div key={line.budgetLineId} className="rounded-lg border bg-background p-3 text-sm">
-                      <p className="font-medium">{line.productTitle ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{line.rubrique}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium">{line.productTitle ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">{line.rubrique}</p>
+                        </div>
+                        {canManage && (
+                          <EditBudgetLineDialog
+                            line={{
+                              id: line.budgetLineId,
+                              projectId: line.projectId,
+                              rubrique: line.rubrique,
+                              productTitle: line.productTitle,
+                              budgetedAmountHTCents: line.budgetedAmountHTCents,
+                            }}
+                            allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
+                          />
+                        )}
+                      </div>
                       <div className="mt-2 grid grid-cols-3 gap-2">
                         <div>
                           <p className="text-xs text-muted-foreground">Budget</p>

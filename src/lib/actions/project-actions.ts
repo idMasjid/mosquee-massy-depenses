@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/rbac";
 import { toCents } from "@/lib/money";
-import { projectFormSchema, budgetLineFormSchema } from "@/lib/validations/project";
+import { projectFormSchema, budgetLineFormSchema, budgetLineUpdateSchema } from "@/lib/validations/project";
 import type { ActionResult } from "@/lib/actions/expense-actions";
 
 export async function createProject(raw: unknown): Promise<ActionResult> {
@@ -59,12 +59,45 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
   return { success: true };
 }
 
-export async function updateBudgetLineAmount(id: string, budgetedAmountHT: number): Promise<ActionResult> {
+export async function updateBudgetLine(id: string, raw: unknown): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
-  await prisma.budgetLine.update({
-    where: { id },
-    data: { budgetedAmountHTCents: toCents(budgetedAmountHT) },
+  const parsed = budgetLineUpdateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+  const input = parsed.data;
+
+  const current = await prisma.budgetLine.findUnique({ where: { id } });
+  if (!current) {
+    return { success: false, error: "Ligne budgétaire introuvable." };
+  }
+
+  const allowed = await prisma.allowedRubrique.findUnique({
+    where: { projectId_rubrique: { projectId: current.projectId, rubrique: input.rubrique } },
   });
+  if (!allowed) {
+    return {
+      success: false,
+      error: "Cette rubrique n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Rubriques.",
+    };
+  }
+
+  try {
+    await prisma.budgetLine.update({
+      where: { id },
+      data: {
+        rubrique: input.rubrique,
+        productTitle: input.productTitle || null,
+        budgetedAmountHTCents: toCents(input.budgetedAmountHT),
+        notes: input.notes || null,
+      },
+    });
+  } catch {
+    return { success: false, error: "Une ligne budgétaire identique existe déjà pour ce projet." };
+  }
+
   revalidatePath("/projects");
+  revalidatePath("/rapports");
+  revalidatePath("/dashboard");
   return { success: true };
 }

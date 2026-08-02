@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Field } from "@/components/form/field";
 import { budgetLineFormSchema, type BudgetLineFormValues } from "@/lib/validations/project";
 import { createBudgetLine } from "@/lib/actions/project-actions";
+import { numeric } from "@/lib/form-utils";
 
 export type AllowedRubriqueOption = { id: string; projectId: string; rubrique: string };
 
@@ -139,7 +140,7 @@ export function NewBudgetLineDialog({
               type="number"
               step="0.01"
               min="0"
-              {...register("budgetedAmountHT", { valueAsNumber: true })}
+              {...register("budgetedAmountHT", { setValueAs: numeric })}
             />
           </Field>
           <DialogFooter>

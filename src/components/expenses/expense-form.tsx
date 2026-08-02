@@ -18,16 +18,7 @@ import { Field } from "@/components/form/field";
 import { expenseFormSchema, type ExpenseFormValues } from "@/lib/validations/expense";
 import { createExpense, updateExpense } from "@/lib/actions/expense-actions";
 import { STATUS_LABELS, type ExpenseStatus } from "@/lib/constants";
-
-// Native number inputs report an empty field as NaN via valueAsNumber, but our
-// zod schema uses .optional() (which only accepts undefined) — without this,
-// clearing an optional amount field fails validation silently (no NaN error
-// is ever shown next to fields that don't render one).
-function numeric(raw: unknown): number | undefined {
-  if (raw === "" || raw === null || raw === undefined) return undefined;
-  const n = Number(raw);
-  return Number.isNaN(n) ? undefined : n;
-}
+import { numeric } from "@/lib/form-utils";
 
 export type BudgetLineOption = {
   id: string;
