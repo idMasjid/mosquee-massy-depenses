@@ -37,6 +37,17 @@ export function slugifyName(name: string): string {
     .replace(/^\.+|\.+$/g, "");
 }
 
+// Accent/case/punctuation-insensitive form used to compare a budget line's
+// (short, categorical) product title against an expense's (long, specific)
+// product title, since the two source sheets rarely spell things identically.
+export function normalizeTitle(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 export function nonEmpty(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   return trimmed ? trimmed : null;

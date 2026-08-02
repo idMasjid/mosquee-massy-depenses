@@ -10,6 +10,7 @@ import {
   slugifyName,
   nonEmpty,
   normalizeHeader,
+  normalizeTitle,
   stripLeadingBlankLines,
   forwardFill,
 } from "./seed-lib";
@@ -157,6 +158,42 @@ type DetailRow = {
   Colonne3?: string;
 };
 
+// Matches an imported expense row to a budget line, in decreasing order of
+// confidence. Crucially, if nothing matches with reasonable confidence, this
+// returns null (leave the expense unlinked for manual review) rather than
+// guessing — an earlier version fell back to "the first budget line found in
+// this project+rubrique", which silently misattributed the large majority of
+// historical expenses (e.g. camera lenses landing on an unrelated "APCR
+// controller" line just because it happened to be first).
+async function findBudgetLine(projectId: string, rubrique: string, productTitle: string | null) {
+  const exact = await prisma.budgetLine.findUnique({
+    where: { projectId_rubrique_productTitle: { projectId, rubrique, productTitle: productTitle ?? "" } },
+  });
+  if (exact) return exact;
+  if (!productTitle) return null;
+
+  const candidates = await prisma.budgetLine.findMany({ where: { projectId } });
+  if (candidates.length === 0) return null;
+
+  const normalizedExpenseTitle = normalizeTitle(productTitle);
+  const sameRubrique = candidates.filter((c) => c.rubrique === rubrique);
+  const searchOrder = [sameRubrique, candidates];
+
+  for (const pool of searchOrder) {
+    const normalizedTitleMatch = pool.find((c) => c.productTitle && normalizeTitle(c.productTitle) === normalizedExpenseTitle);
+    if (normalizedTitleMatch) return normalizedTitleMatch;
+  }
+  for (const pool of searchOrder) {
+    const substringMatches = pool.filter(
+      (c) => c.productTitle && normalizedExpenseTitle.includes(normalizeTitle(c.productTitle)),
+    );
+    // Only trust this if exactly one candidate line's title appears in the expense's
+    // title — if several do, we can't tell which one is meant without guessing.
+    if (substringMatches.length === 1) return substringMatches[0];
+  }
+  return null;
+}
+
 async function seedExpenses() {
   const existing = await prisma.expense.count();
   if (existing > 0) {
@@ -217,20 +254,7 @@ async function seedExpenses() {
       projectCache.set(projectName, projectId);
     }
 
-    let budgetLine = await prisma.budgetLine.findUnique({
-      where: {
-        projectId_rubrique_productTitle: {
-          projectId,
-          rubrique,
-          productTitle: productTitle ?? "",
-        },
-      },
-    });
-    if (!budgetLine) {
-      budgetLine = await prisma.budgetLine.findFirst({
-        where: { projectId, rubrique },
-      });
-    }
+    const budgetLine = await findBudgetLine(projectId, rubrique, productTitle);
 
     const initiatorName = nonEmpty(row["Identité du membre effectuant la saisie"]) ?? "Inconnu";
     let initiatorId = userCache.get(initiatorName);
