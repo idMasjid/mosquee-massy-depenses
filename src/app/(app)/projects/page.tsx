@@ -61,43 +61,72 @@ export default async function ProjectsPage() {
                 {formatEUR(totalSpent)} / {formatEUR(totalBudget)}
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rubrique</TableHead>
-                    <TableHead>Produit</TableHead>
-                    <TableHead className="text-right">Budget</TableHead>
-                    <TableHead className="text-right">Réalisé</TableHead>
-                    <TableHead className="text-right">Engagé</TableHead>
-                    <TableHead className="text-right">Restant</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        Aucune ligne budgétaire.
-                      </TableCell>
-                    </TableRow>
-                  )}
+            {lines.length === 0 && (
+              <p className="p-4 text-center text-sm text-muted-foreground">Aucune ligne budgétaire.</p>
+            )}
+
+            {lines.length > 0 && (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rubrique</TableHead>
+                        <TableHead>Produit</TableHead>
+                        <TableHead className="text-right">Budget</TableHead>
+                        <TableHead className="text-right">Réalisé</TableHead>
+                        <TableHead className="text-right">Engagé</TableHead>
+                        <TableHead className="text-right">Restant</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((line) => (
+                        <TableRow key={line.budgetLineId}>
+                          <TableCell>{line.rubrique}</TableCell>
+                          <TableCell className="text-muted-foreground">{line.productTitle ?? "—"}</TableCell>
+                          <TableCell className="text-right">{formatEUR(line.budgetedAmountHTCents)}</TableCell>
+                          <TableCell className="text-right">{formatEUR(line.realiseCents)}</TableCell>
+                          <TableCell className="text-right">{formatEUR(line.engageCents)}</TableCell>
+                          <TableCell
+                            className={`text-right ${line.remainingCents < 0 ? "text-destructive" : ""}`}
+                          >
+                            {formatEUR(line.remainingCents)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="flex flex-col gap-2 p-3 md:hidden">
                   {lines.map((line) => (
-                    <TableRow key={line.budgetLineId}>
-                      <TableCell>{line.rubrique}</TableCell>
-                      <TableCell className="text-muted-foreground">{line.productTitle ?? "—"}</TableCell>
-                      <TableCell className="text-right">{formatEUR(line.budgetedAmountHTCents)}</TableCell>
-                      <TableCell className="text-right">{formatEUR(line.realiseCents)}</TableCell>
-                      <TableCell className="text-right">{formatEUR(line.engageCents)}</TableCell>
-                      <TableCell
-                        className={`text-right ${line.remainingCents < 0 ? "text-destructive" : ""}`}
-                      >
+                    <div key={line.budgetLineId} className="rounded-lg border bg-background p-3 text-sm">
+                      <p className="font-medium">{line.productTitle ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{line.rubrique}</p>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Budget</p>
+                          <p className="tabular-nums">{formatEUR(line.budgetedAmountHTCents)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Réalisé</p>
+                          <p className="tabular-nums">{formatEUR(line.realiseCents)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Engagé</p>
+                          <p className="tabular-nums">{formatEUR(line.engageCents)}</p>
+                        </div>
+                      </div>
+                      <p className={`mt-2 text-right font-semibold tabular-nums ${line.remainingCents < 0 ? "text-destructive" : ""}`}>
                         {formatEUR(line.remainingCents)}
-                      </TableCell>
-                    </TableRow>
+                      </p>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         );
       })}

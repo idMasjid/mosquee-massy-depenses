@@ -245,7 +245,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
             placeholder="Rechercher un projet, une rubrique ou un produit…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full md:max-w-xs"
           />
           <div className="flex overflow-hidden rounded-lg border">
             {(
@@ -283,7 +283,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
           </Button>
         </div>
 
-        <div className="grid grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] gap-3 px-4">
+        <div className="hidden grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] gap-3 px-4 md:grid">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projet</span>
           <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} />
           <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={handleSort} />
@@ -310,26 +310,62 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
               onToggle={(e) => toggleGroup(g.projectName, (e.target as HTMLDetailsElement).open)}
               className="rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
             >
-              <summary className="grid cursor-pointer grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 p-4 print:cursor-default print:break-inside-avoid print:break-after-avoid">
-                <span className="flex items-center gap-2 font-semibold">
-                  {g.projectName}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
+              <summary className="cursor-pointer p-4 print:cursor-default print:break-inside-avoid print:break-after-avoid">
+                {/* Desktop: single-row grid */}
+                <div className="hidden grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 md:grid print:grid">
+                  <span className="flex items-center gap-2 font-semibold">
+                    {g.projectName}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
+                    </span>
                   </span>
-                </span>
-                <span className="text-right text-sm tabular-nums">{formatEUR(g.budgetCents)}</span>
-                <span className="text-right text-sm tabular-nums">{formatEUR(g.realiseCents)}</span>
-                <span className="text-right text-sm tabular-nums">{formatEUR(g.engageCents)}</span>
-                <span className="flex flex-col items-end gap-1.5">
-                  <span className={cn("text-right text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
-                    {formatEUR(g.restantCents)}
+                  <span className="text-right text-sm tabular-nums">{formatEUR(g.budgetCents)}</span>
+                  <span className="text-right text-sm tabular-nums">{formatEUR(g.realiseCents)}</span>
+                  <span className="text-right text-sm tabular-nums">{formatEUR(g.engageCents)}</span>
+                  <span className="flex flex-col items-end gap-1.5">
+                    <span className={cn("text-right text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+                      {formatEUR(g.restantCents)}
+                    </span>
+                    <ConsumptionBar pct={pct} good={good} className="w-20" />
                   </span>
-                  <ConsumptionBar pct={pct} good={good} className="w-20" />
-                </span>
-                <StatusPill good={good} className="justify-self-end" />
+                  <StatusPill good={good} className="justify-self-end" />
+                </div>
+
+                {/* Mobile: stacked card */}
+                <div className="flex flex-col gap-3 md:hidden print:hidden">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold">
+                      {g.projectName}
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
+                      </span>
+                    </span>
+                    <StatusPill good={good} className="shrink-0" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Budgétisé</p>
+                      <p className="tabular-nums">{formatEUR(g.budgetCents)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Réalisé</p>
+                      <p className="tabular-nums">{formatEUR(g.realiseCents)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Engagé</p>
+                      <p className="tabular-nums">{formatEUR(g.engageCents)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ConsumptionBar pct={pct} good={good} className="flex-1" />
+                    <span className={cn("shrink-0 text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                      {formatEUR(g.restantCents)}
+                    </span>
+                  </div>
+                </div>
               </summary>
 
-              <div className="overflow-x-auto border-t px-2 print:break-inside-auto">
+              <div className="hidden overflow-x-auto border-t px-2 md:block print:block print:break-inside-auto">
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
@@ -382,6 +418,45 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                     })}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* Mobile: card list */}
+              <div className="flex flex-col gap-2 border-t p-3 md:hidden print:hidden">
+                {g.visibleRows.map((r) => {
+                  const rowGood = r.restantCents >= 0;
+                  const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
+                  return (
+                    <div key={r.id} className="rounded-lg border bg-background p-3 text-sm">
+                      <p className="font-medium">{r.productTitle ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{r.rubrique}</p>
+                      <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Budgétisé</p>
+                          <p className="tabular-nums">{formatEUR(r.budgetCents)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Réalisé</p>
+                          <p className="tabular-nums">{formatEUR(r.realiseCents)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Engagé</p>
+                          <p className="tabular-nums">{formatEUR(r.engageCents)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <ConsumptionBar pct={rowPct} good={rowGood} className="flex-1" />
+                        <span
+                          className={cn(
+                            "shrink-0 text-sm font-semibold tabular-nums",
+                            rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                          )}
+                        >
+                          {formatEUR(r.restantCents)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </details>
           );
