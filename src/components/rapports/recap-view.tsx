@@ -52,7 +52,7 @@ function ConsumptionBar({ pct, good, className }: { pct: number; good: boolean; 
   );
 }
 
-function StatusPill({ good }: { good: boolean }) {
+function StatusPill({ good, className }: { good: boolean; className?: string }) {
   return (
     <Badge
       variant={good ? "outline" : "destructive"}
@@ -60,6 +60,7 @@ function StatusPill({ good }: { good: boolean }) {
         good &&
           "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 print:border-emerald-300 print:bg-white print:text-emerald-700",
         !good && "print:border-red-300 print:bg-white print:text-red-700",
+        className,
       )}
     >
       {good ? "Dans le budget" : "Dépassé"}
@@ -282,7 +283,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
           </Button>
         </div>
 
-        <div className="grid grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_0.8fr] gap-3 px-1">
+        <div className="grid grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] gap-3 px-4">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projet</span>
           <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} />
           <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={handleSort} />
@@ -309,7 +310,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
               onToggle={(e) => toggleGroup(g.projectName, (e.target as HTMLDetailsElement).open)}
               className="rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
             >
-              <summary className="grid cursor-pointer grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] items-center gap-3 p-4 print:cursor-default print:break-inside-avoid print:break-after-avoid">
+              <summary className="grid cursor-pointer grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 p-4 print:cursor-default print:break-inside-avoid print:break-after-avoid">
                 <span className="flex items-center gap-2 font-semibold">
                   {g.projectName}
                   <span className="text-xs font-normal text-muted-foreground">
@@ -325,28 +326,28 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                   </span>
                   <ConsumptionBar pct={pct} good={good} className="w-20" />
                 </span>
-                <StatusPill good={good} />
+                <StatusPill good={good} className="justify-self-end" />
               </summary>
 
-              <div className="overflow-x-auto border-t print:break-inside-auto">
-                <Table>
+              <div className="overflow-x-auto border-t px-2 print:break-inside-auto">
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rubrique</TableHead>
+                      <TableHead className="w-40">Rubrique</TableHead>
                       <TableHead>Produit</TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-28 text-right">
                         <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} className="print:hidden" />
                         <span className="hidden print:inline">Budgétisé</span>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-28 text-right">
                         <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={handleSort} className="print:hidden" />
                         <span className="hidden print:inline">Réalisé</span>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-28 text-right">
                         <SortButton label="Engagé" sortKey="engage" current={sort} onSort={handleSort} className="print:hidden" />
                         <span className="hidden print:inline">Engagé</span>
                       </TableHead>
-                      <TableHead className="text-right">
+                      <TableHead className="w-44 text-right">
                         <SortButton label="Restant" sortKey="restant" current={sort} onSort={handleSort} className="print:hidden" />
                         <span className="hidden print:inline">Restant</span>
                       </TableHead>
