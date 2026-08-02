@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// role: "ADMIN" | "IT" | "BUREAU" (see src/lib/constants.ts)
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String?
+  role          String
+  isActive      Boolean  @default(true)
+  isPlaceholder Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  expensesCreated   Expense[] @relation("ExpenseCreatedBy")
+  expensesValidated Expense[] @relation("ExpenseValidatedBy")
+  expensesRejected  Expense[] @relation("ExpenseRejectedBy")
+  expensesCancelled Expense[] @relation("ExpenseCancelledBy")
+
+  attachmentsUploaded Attachment[]
+  statusEvents        ExpenseStatusEvent[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  budgetLines BudgetLine[]
+  expenses    Expense[]
+}
+
+// One row per (Projet, Rubrique, Titre produit) budget line, matching the sheet's budget tab grain
+model BudgetLine {
+  id                    String   @id @default(cuid())
+  projectId             String
+  project               Project  @relation(fields: [projectId], references: [id])
+  rubrique              String
+  productTitle          String?
+  budgetedAmountHTCents Int      @default(0)
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@unique([projectId, rubrique, productTitle])
+}
+
+// status: "A_VENIR" | "EN_ATTENTE" | "VALIDE" | "REALISE" | "REJETE" | "ANNULE" (see src/lib/constants.ts)
+model Expense {
+  id String @id @default(cuid())
+
+  // --- Workflow / audit ---
+  status              String
+  createdById         String
+  createdBy           User      @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  legacyInitiatorName String?
+  submittedAt         DateTime?
+  validatedById       String?
+  validatedBy         User?     @relation("ExpenseValidatedBy", fields: [validatedById], references: [id])
+  validatedAt         DateTime?
+  rejectedById        String?
+  rejectedBy          User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id])
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  realizedAt          DateTime?
+  cancelledById       String?
+  cancelledBy         User?     @relation("ExpenseCancelledBy", fields: [cancelledById], references: [id])
+  cancelledAt         DateTime?
+  cancellationReason  String?
+
+  // --- "Détail dépenses" sheet fields ---
+  entryDate          DateTime // Date saisie
+  orderDate          DateTime? // Date commande
+  supplierName       String // Fournisseur
+  supplierIdentifier String? // Identifiant fournisseur (mail, ref…)
+  orderNumber        String? // N° bon de commande/devis
+  purchaseType       String? // Type (Internet, physique…)
+  invoiceDate        DateTime? // Date facture
+  invoiceNumber      String? // N° facture
+  invoiceLink        String? // Lien facture (legacy external URL)
+  unitPriceHTCents   Int? // Montant unitaire HT
+  quantity           Float?   @default(1) // Quantité
+  deliveryFeeCents   Int?     @default(0) // Livraison
+  importFeeCents     Int?     @default(0) // Frais import
+  discountCents      Int?     @default(0) // Réduction
+  totalHTCents       Int // Total HT
+  vatRateBps         Int? // Taux TVA, en points de base (2000 = 20.00%)
+  vatAmountCents     Int? // TVA
+  totalTTCCents      Int // Montant TTC
+  paymentType        String? // Type paiement
+  paymentReference   String? // Ref. paiement
+  productTitle       String // Titre produit
+  segment            String? // Segment
+  rubriqueLabel      String // Rubrique (snapshot texte)
+  amazonService      String? // Service affecté Amazon
+  legacyBudgetFilter String? // Filtre budget (legacy)
+  legacyColumn3      String? // Colonne3 (legacy)
+
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id])
+  budgetLineId String?
+  budgetLine   BudgetLine? @relation(fields: [budgetLineId], references: [id])
+
+  attachments  Attachment[]
+  statusEvents ExpenseStatusEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([projectId])
+  @@index([budgetLineId])
+  @@index([entryDate])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  expenseId    String
+  expense      Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  fileName     String
+  storedPath   String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model ExpenseStatusEvent {
+  id         String   @id @default(cuid())
+  expenseId  String
+  expense    Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  fromStatus String?
+  toStatus   String
+  note       String?
+  byUserId   String
+  byUser     User     @relation(fields: [byUserId], references: [id])
+  createdAt  DateTime @default(now())
+}
