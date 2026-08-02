@@ -31,6 +31,17 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   const input = parsed.data;
+
+  const allowed = await prisma.allowedRubrique.findUnique({
+    where: { projectId_rubrique: { projectId: input.projectId, rubrique: input.rubrique } },
+  });
+  if (!allowed) {
+    return {
+      success: false,
+      error: "Cette rubrique n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Rubriques.",
+    };
+  }
+
   try {
     await prisma.budgetLine.create({
       data: {

@@ -10,9 +10,10 @@ export default async function ProjectsPage() {
   const session = await requireSession();
   const canManage = session.user.role === "ADMIN" || session.user.role === "IT";
 
-  const [projects, overview] = await Promise.all([
+  const [projects, overview, allowedRubriques] = await Promise.all([
     prisma.project.findMany({ orderBy: { name: "asc" } }),
     getBudgetOverview(),
+    prisma.allowedRubrique.findMany({ orderBy: { rubrique: "asc" } }),
   ]);
 
   const linesByProject = new Map<string, typeof overview>();
@@ -34,7 +35,10 @@ export default async function ProjectsPage() {
         {canManage && (
           <div className="flex gap-2">
             <NewProjectDialog />
-            <NewBudgetLineDialog projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
+            <NewBudgetLineDialog
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
+            />
           </div>
         )}
       </div>

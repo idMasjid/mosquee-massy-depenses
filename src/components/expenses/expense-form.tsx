@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -19,7 +19,15 @@ import { expenseFormSchema, type ExpenseFormValues } from "@/lib/validations/exp
 import { createExpense, updateExpense } from "@/lib/actions/expense-actions";
 import { STATUS_LABELS, type ExpenseStatus } from "@/lib/constants";
 
-const CUSTOM_RUBRIQUE = "__custom__";
+// Native number inputs report an empty field as NaN via valueAsNumber, but our
+// zod schema uses .optional() (which only accepts undefined) — without this,
+// clearing an optional amount field fails validation silently (no NaN error
+// is ever shown next to fields that don't render one).
+function numeric(raw: unknown): number | undefined {
+  if (raw === "" || raw === null || raw === undefined) return undefined;
+  const n = Number(raw);
+  return Number.isNaN(n) ? undefined : n;
+}
 
 export type BudgetLineOption = {
   id: string;
@@ -42,8 +50,6 @@ export function ExpenseForm({
   expenseId?: string;
   defaultValues?: Partial<ExpenseFormValues>;
 }) {
-  const [useCustomRubrique, setUseCustomRubrique] = useState(false);
-
   const {
     register,
     control,
@@ -138,7 +144,6 @@ export function ExpenseForm({
                     field.onChange(v);
                     setValue("budgetLineId", undefined);
                     setValue("rubriqueLabel", "");
-                    setUseCustomRubrique(false);
                   }}
                 >
                   <SelectTrigger className="w-full">
@@ -157,59 +162,42 @@ export function ExpenseForm({
           </Field>
 
           <Field label="Rubrique" required error={errors.rubriqueLabel?.message}>
-            {!useCustomRubrique ? (
-              <Controller
-                control={control}
-                name="budgetLineId"
-                render={({ field }) => (
-                  <Select
-                    items={{
-                      ...Object.fromEntries(
-                        availableLines.map((l) => [l.id, `${l.rubrique}${l.productTitle ? ` — ${l.productTitle}` : ""}`]),
-                      ),
-                      [CUSTOM_RUBRIQUE]: "Autre (rubrique libre)",
-                    }}
-                    value={field.value}
-                    onValueChange={(v) => {
-                      if (v === CUSTOM_RUBRIQUE) {
-                        setUseCustomRubrique(true);
-                        field.onChange(undefined);
-                        setValue("rubriqueLabel", "");
-                        return;
-                      }
-                      field.onChange(v);
-                      const line = availableLines.find((l) => l.id === v);
-                      setValue("rubriqueLabel", line?.rubrique ?? "");
-                    }}
-                    disabled={!projectId}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={projectId ? "Sélectionner une rubrique" : "Choisir un projet d'abord"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableLines.map((l) => (
+            <Controller
+              control={control}
+              name="budgetLineId"
+              render={({ field }) => (
+                <Select
+                  items={Object.fromEntries(
+                    availableLines.map((l) => [l.id, `${l.rubrique}${l.productTitle ? ` — ${l.productTitle}` : ""}`]),
+                  )}
+                  value={field.value}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    const line = availableLines.find((l) => l.id === v);
+                    setValue("rubriqueLabel", line?.rubrique ?? "");
+                  }}
+                  disabled={!projectId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={projectId ? "Sélectionner une rubrique" : "Choisir un projet d'abord"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableLines.length === 0 ? (
+                      <p className="p-2 text-sm text-muted-foreground">
+                        Aucune ligne budgétaire pour ce projet. Créez-la d&apos;abord dans Projets &amp; budgets.
+                      </p>
+                    ) : (
+                      availableLines.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           {l.rubrique}
                           {l.productTitle ? ` — ${l.productTitle}` : ""}
                         </SelectItem>
-                      ))}
-                      <SelectItem value={CUSTOM_RUBRIQUE}>Autre (rubrique libre)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            ) : (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nom de la rubrique"
-                  {...register("rubriqueLabel")}
-                  className="flex-1"
-                />
-                <Button type="button" variant="ghost" size="sm" onClick={() => setUseCustomRubrique(false)}>
-                  Choisir dans la liste
-                </Button>
-              </div>
-            )}
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </Field>
 
           <Field label="Segment" htmlFor="segment">
@@ -238,32 +226,32 @@ export function ExpenseForm({
       <section>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Montants</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Montant unitaire HT (€)" htmlFor="unitPriceHT">
-            <Input id="unitPriceHT" type="number" step="0.01" {...register("unitPriceHT", { valueAsNumber: true })} />
+          <Field label="Montant unitaire HT (€)" htmlFor="unitPriceHT" error={errors.unitPriceHT?.message}>
+            <Input id="unitPriceHT" type="number" step="0.01" {...register("unitPriceHT", { setValueAs: numeric })} />
           </Field>
           <Field label="Quantité" htmlFor="quantity" required error={errors.quantity?.message}>
-            <Input id="quantity" type="number" step="0.01" min="0" {...register("quantity", { valueAsNumber: true })} />
+            <Input id="quantity" type="number" step="0.01" min="0" {...register("quantity", { setValueAs: numeric })} />
           </Field>
-          <Field label="Livraison (€)" htmlFor="deliveryFee">
-            <Input id="deliveryFee" type="number" step="0.01" {...register("deliveryFee", { valueAsNumber: true })} />
+          <Field label="Livraison (€)" htmlFor="deliveryFee" error={errors.deliveryFee?.message}>
+            <Input id="deliveryFee" type="number" step="0.01" {...register("deliveryFee", { setValueAs: numeric })} />
           </Field>
-          <Field label="Frais import (€)" htmlFor="importFee">
-            <Input id="importFee" type="number" step="0.01" {...register("importFee", { valueAsNumber: true })} />
+          <Field label="Frais import (€)" htmlFor="importFee" error={errors.importFee?.message}>
+            <Input id="importFee" type="number" step="0.01" {...register("importFee", { setValueAs: numeric })} />
           </Field>
-          <Field label="Réduction (€)" htmlFor="discount">
-            <Input id="discount" type="number" step="0.01" {...register("discount", { valueAsNumber: true })} />
+          <Field label="Réduction (€)" htmlFor="discount" error={errors.discount?.message}>
+            <Input id="discount" type="number" step="0.01" {...register("discount", { setValueAs: numeric })} />
           </Field>
-          <Field label="Taux TVA (%)" htmlFor="vatRate">
-            <Input id="vatRate" type="number" step="0.01" {...register("vatRate", { valueAsNumber: true })} />
+          <Field label="Taux TVA (%)" htmlFor="vatRate" error={errors.vatRate?.message}>
+            <Input id="vatRate" type="number" step="0.01" {...register("vatRate", { setValueAs: numeric })} />
           </Field>
-          <Field label="TVA (€)" htmlFor="vatAmount">
-            <Input id="vatAmount" type="number" step="0.01" {...register("vatAmount", { valueAsNumber: true })} />
+          <Field label="TVA (€)" htmlFor="vatAmount" error={errors.vatAmount?.message}>
+            <Input id="vatAmount" type="number" step="0.01" {...register("vatAmount", { setValueAs: numeric })} />
           </Field>
           <Field label="Total HT (€)" htmlFor="totalHT" required error={errors.totalHT?.message}>
-            <Input id="totalHT" type="number" step="0.01" {...register("totalHT", { valueAsNumber: true })} />
+            <Input id="totalHT" type="number" step="0.01" {...register("totalHT", { setValueAs: numeric })} />
           </Field>
           <Field label="Total TTC (€)" htmlFor="totalTTC" required error={errors.totalTTC?.message}>
-            <Input id="totalTTC" type="number" step="0.01" {...register("totalTTC", { valueAsNumber: true })} />
+            <Input id="totalTTC" type="number" step="0.01" {...register("totalTTC", { setValueAs: numeric })} />
           </Field>
         </div>
       </section>

@@ -122,6 +122,12 @@ async function seedProjectsAndBudgets() {
       },
     });
     budgetLineCount++;
+
+    await prisma.allowedRubrique.upsert({
+      where: { projectId_rubrique: { projectId: project.id, rubrique } },
+      update: {},
+      create: { projectId: project.id, rubrique },
+    });
   }
 
   console.log(`Projets/budgets importés: ${projectCount} lignes projet, ${budgetLineCount} lignes budget.`);

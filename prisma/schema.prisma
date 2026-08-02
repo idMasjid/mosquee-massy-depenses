@@ -40,8 +40,22 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  budgetLines BudgetLine[]
-  expenses    Expense[]
+  budgetLines      BudgetLine[]
+  expenses         Expense[]
+  allowedRubriques AllowedRubrique[]
+}
+
+// Table de paramétrage : combinaisons Projet/Rubrique autorisées. Sert de
+// liste fermée pour la création de lignes budgétaires et de dépenses (pas
+// de saisie libre de rubrique en dehors de cette page de gestion).
+model AllowedRubrique {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rubrique  String
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, rubrique])
 }
 
 // One row per (Projet, Rubrique, Titre produit) budget line, matching the sheet's budget tab grain

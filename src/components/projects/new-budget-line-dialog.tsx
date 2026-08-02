@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -19,18 +19,34 @@ import { Field } from "@/components/form/field";
 import { budgetLineFormSchema, type BudgetLineFormValues } from "@/lib/validations/project";
 import { createBudgetLine } from "@/lib/actions/project-actions";
 
-export function NewBudgetLineDialog({ projects }: { projects: { id: string; name: string }[] }) {
+export type AllowedRubriqueOption = { id: string; projectId: string; rubrique: string };
+
+export function NewBudgetLineDialog({
+  projects,
+  allowedRubriques,
+}: {
+  projects: { id: string; name: string }[];
+  allowedRubriques: AllowedRubriqueOption[];
+}) {
   const [open, setOpen] = useState(false);
   const {
     register,
     control,
     handleSubmit,
+    watch,
+    setValue,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<BudgetLineFormValues>({
     resolver: zodResolver(budgetLineFormSchema),
     defaultValues: { projectId: "", rubrique: "", productTitle: "", budgetedAmountHT: 0 },
   });
+
+  const projectId = watch("projectId");
+  const availableRubriques = useMemo(
+    () => allowedRubriques.filter((r) => r.projectId === projectId),
+    [allowedRubriques, projectId],
+  );
 
   const onSubmit = async (values: BudgetLineFormValues) => {
     const result = await createBudgetLine(values);
@@ -62,7 +78,10 @@ export function NewBudgetLineDialog({ projects }: { projects: { id: string; name
                 <Select
                   items={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
                   value={field.value}
-                  onValueChange={field.onChange}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    setValue("rubrique", "");
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sélectionner un projet" />
@@ -78,8 +97,38 @@ export function NewBudgetLineDialog({ projects }: { projects: { id: string; name
               )}
             />
           </Field>
-          <Field label="Rubrique" htmlFor="rubrique" required error={errors.rubrique?.message}>
-            <Input id="rubrique" {...register("rubrique")} />
+          <Field label="Rubrique" required error={errors.rubrique?.message}>
+            <Controller
+              control={control}
+              name="rubrique"
+              render={({ field }) => (
+                <Select
+                  items={Object.fromEntries(availableRubriques.map((r) => [r.rubrique, r.rubrique]))}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={!projectId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue
+                      placeholder={projectId ? "Sélectionner une rubrique" : "Choisir un projet d'abord"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRubriques.length === 0 ? (
+                      <p className="p-2 text-sm text-muted-foreground">
+                        Aucune rubrique autorisée pour ce projet. Ajoutez-la dans Rubriques.
+                      </p>
+                    ) : (
+                      availableRubriques.map((r) => (
+                        <SelectItem key={r.id} value={r.rubrique}>
+                          {r.rubrique}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </Field>
           <Field label="Titre produit (optionnel)" htmlFor="productTitle">
             <Input id="productTitle" {...register("productTitle")} />
