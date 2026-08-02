@@ -397,8 +397,8 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                       const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
                       return (
                         <TableRow key={r.id} className="print:break-inside-avoid">
-                          <TableCell className="text-muted-foreground">{r.rubrique}</TableCell>
-                          <TableCell className="font-medium">{r.productTitle ?? "—"}</TableCell>
+                          <TableCell className="whitespace-normal break-words text-muted-foreground">{r.rubrique}</TableCell>
+                          <TableCell className="whitespace-normal break-words font-medium">{r.productTitle ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatEUR(r.budgetCents)}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatEUR(r.realiseCents)}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatEUR(r.engageCents)}</TableCell>
