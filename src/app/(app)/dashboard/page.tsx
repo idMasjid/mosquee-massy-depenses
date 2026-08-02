@@ -72,7 +72,7 @@ export default async function DashboardPage() {
         <StatTile
           label="Restant"
           value={formatEUR(forecast.totalRemainingCents)}
-          tone={forecast.totalRemainingCents < 0 ? "critical" : "default"}
+          tone={forecast.totalRemainingCents < 0 ? "critical" : "good"}
         />
       </div>
 

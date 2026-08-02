@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Printer } from "lucide-react";
+import { AlertTriangle, ChevronRight, Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -221,7 +221,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
         <StatTile
           label="Restant"
           value={formatEUR(totals.restantCents)}
-          tone={totals.restantCents < 0 ? "critical" : "default"}
+          tone={totals.restantCents < 0 ? "critical" : "good"}
         />
       </div>
 
@@ -308,12 +308,13 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
               key={g.projectName}
               open={isOpen}
               onToggle={(e) => toggleGroup(g.projectName, (e.target as HTMLDetailsElement).open)}
-              className="rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
+              className="group rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
             >
-              <summary className="cursor-pointer p-4 print:cursor-default print:break-inside-avoid print:break-after-avoid">
+              <summary className="list-none cursor-pointer p-4 [&::-webkit-details-marker]:hidden print:cursor-default print:break-inside-avoid print:break-after-avoid">
                 {/* Desktop: single-row grid */}
                 <div className="hidden grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 md:grid print:grid">
                   <span className="flex items-center gap-2 font-semibold">
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 print:hidden" />
                     {g.projectName}
                     <span className="text-xs font-normal text-muted-foreground">
                       {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
@@ -334,7 +335,8 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                 {/* Mobile: stacked card */}
                 <div className="flex flex-col gap-3 md:hidden print:hidden">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-semibold">
+                    <span className="flex items-center font-semibold">
+                      <ChevronRight className="mr-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
                       {g.projectName}
                       <span className="ml-2 text-xs font-normal text-muted-foreground">
                         {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}

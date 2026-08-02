@@ -89,7 +89,7 @@ export default async function ProjectsPage() {
                           <TableCell className="text-right">{formatEUR(line.realiseCents)}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.engageCents)}</TableCell>
                           <TableCell
-                            className={`text-right ${line.remainingCents < 0 ? "text-destructive" : ""}`}
+                            className={`text-right font-medium ${line.remainingCents < 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}
                           >
                             {formatEUR(line.remainingCents)}
                           </TableCell>
@@ -119,7 +119,7 @@ export default async function ProjectsPage() {
                           <p className="tabular-nums">{formatEUR(line.engageCents)}</p>
                         </div>
                       </div>
-                      <p className={`mt-2 text-right font-semibold tabular-nums ${line.remainingCents < 0 ? "text-destructive" : ""}`}>
+                      <p className={`mt-2 text-right font-semibold tabular-nums ${line.remainingCents < 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
                         {formatEUR(line.remainingCents)}
                       </p>
                     </div>
