@@ -56,6 +56,8 @@ export function ExpenseForm({
     defaultValues: {
       status: allowedStatuses[0],
       entryDate: new Date().toISOString().slice(0, 10),
+      projectId: "",
+      budgetLineId: "",
       quantity: 1,
       deliveryFee: 0,
       importFee: 0,
@@ -89,7 +91,11 @@ export function ExpenseForm({
               control={control}
               name="status"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  items={Object.fromEntries(allowedStatuses.map((s) => [s, STATUS_LABELS[s]]))}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -126,6 +132,7 @@ export function ExpenseForm({
               name="projectId"
               render={({ field }) => (
                 <Select
+                  items={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
                   value={field.value}
                   onValueChange={(v) => {
                     field.onChange(v);
@@ -156,6 +163,12 @@ export function ExpenseForm({
                 name="budgetLineId"
                 render={({ field }) => (
                   <Select
+                    items={{
+                      ...Object.fromEntries(
+                        availableLines.map((l) => [l.id, `${l.rubrique}${l.productTitle ? ` — ${l.productTitle}` : ""}`]),
+                      ),
+                      [CUSTOM_RUBRIQUE]: "Autre (rubrique libre)",
+                    }}
                     value={field.value}
                     onValueChange={(v) => {
                       if (v === CUSTOM_RUBRIQUE) {

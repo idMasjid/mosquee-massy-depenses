@@ -29,14 +29,14 @@ export function NewBudgetLineDialog({ projects }: { projects: { id: string; name
     formState: { errors, isSubmitting },
   } = useForm<BudgetLineFormValues>({
     resolver: zodResolver(budgetLineFormSchema),
-    defaultValues: { budgetedAmountHT: 0 },
+    defaultValues: { projectId: "", rubrique: "", productTitle: "", budgetedAmountHT: 0 },
   });
 
   const onSubmit = async (values: BudgetLineFormValues) => {
     const result = await createBudgetLine(values);
     if (result.success) {
       toast.success("Ligne budgétaire créée.");
-      reset({ budgetedAmountHT: 0 });
+      reset({ projectId: "", rubrique: "", productTitle: "", budgetedAmountHT: 0 });
       setOpen(false);
     } else {
       toast.error(result.error);
@@ -59,7 +59,11 @@ export function NewBudgetLineDialog({ projects }: { projects: { id: string; name
               control={control}
               name="projectId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  items={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sélectionner un projet" />
                   </SelectTrigger>

@@ -61,7 +61,11 @@ export function EditUserDialog({
               control={control}
               name="role"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  items={Object.fromEntries(ROLES.map((r) => [r, ROLE_LABELS[r]]))}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>

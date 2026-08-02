@@ -86,7 +86,11 @@ export function ExpensesExplorer({ expenses, projectNames }: { expenses: Expense
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
-        <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
+        <Select
+          items={{ [ALL]: "Tous les statuts", ...Object.fromEntries(EXPENSE_STATUSES.map((s) => [s, STATUS_LABELS[s]])) }}
+          value={status}
+          onValueChange={(v) => setStatus(v ?? ALL)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
@@ -99,7 +103,11 @@ export function ExpensesExplorer({ expenses, projectNames }: { expenses: Expense
             ))}
           </SelectContent>
         </Select>
-        <Select value={project} onValueChange={(v) => setProject(v ?? ALL)}>
+        <Select
+          items={{ [ALL]: "Tous les projets", ...Object.fromEntries(projectNames.map((p) => [p, p])) }}
+          value={project}
+          onValueChange={(v) => setProject(v ?? ALL)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Projet" />
           </SelectTrigger>
