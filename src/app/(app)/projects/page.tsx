@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { NewBudgetLineDialog } from "@/components/projects/new-budget-line-dialog";
 import { EditBudgetLineDialog } from "@/components/projects/edit-budget-line-dialog";
+import { ArchiveProjectButton } from "@/components/projects/archive-project-button";
+import { ArchiveBudgetLineButton } from "@/components/projects/archive-budget-line-button";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConsumptionBar, BarTooltip } from "@/components/budget/consumption-bar";
 import { consumptionPct } from "@/lib/consumption";
@@ -40,7 +43,7 @@ export default async function ProjectsPage() {
           <div className="flex gap-2">
             <NewProjectDialog />
             <NewBudgetLineDialog
-              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              projects={projects.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
               allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
             />
           </div>
@@ -66,10 +69,13 @@ export default async function ProjectsPage() {
         const totalPct = consumptionPct(totalBudget, totalRealise + totalEngage, totalRestant);
 
         return (
-          <div key={project.id} className="rounded-xl border bg-card">
+          <div key={project.id} className={cn("rounded-xl border bg-card", !project.isActive && "opacity-60")}>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
               <div>
-                <h2 className="font-semibold">{project.name}</h2>
+                <span className="flex items-center gap-2">
+                  <h2 className="font-semibold">{project.name}</h2>
+                  {!project.isActive && <Badge variant="outline">Archivé</Badge>}
+                </span>
                 {project.description && (
                   <p className="text-sm text-muted-foreground">{project.description}</p>
                 )}
@@ -102,6 +108,7 @@ export default async function ProjectsPage() {
                   }
                   className="w-24"
                 />
+                {canManage && <ArchiveProjectButton id={project.id} name={project.name} isActive={project.isActive} />}
               </div>
             </div>
             {lines.length === 0 && (
@@ -126,8 +133,13 @@ export default async function ProjectsPage() {
                     </TableHeader>
                     <TableBody>
                       {linesWithConsumption.map((line) => (
-                        <TableRow key={line.budgetLineId}>
-                          <TableCell>{line.rubrique}</TableCell>
+                        <TableRow key={line.budgetLineId} className={cn(!line.isActive && "opacity-60")}>
+                          <TableCell>
+                            <span className="flex items-center gap-2">
+                              {line.rubrique}
+                              {!line.isActive && <Badge variant="outline">Archivée</Badge>}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">{line.productTitle ?? "—"}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.budgetedAmountHTCents)}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.realiseCents)}</TableCell>
@@ -160,16 +172,23 @@ export default async function ProjectsPage() {
                           </TableCell>
                           {canManage && (
                             <TableCell>
-                              <EditBudgetLineDialog
-                                line={{
-                                  id: line.budgetLineId,
-                                  projectId: line.projectId,
-                                  rubrique: line.rubrique,
-                                  productTitle: line.productTitle,
-                                  budgetedAmountHTCents: line.budgetedAmountHTCents,
-                                }}
-                                allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
-                              />
+                              <div className="flex items-center justify-end gap-1">
+                                <EditBudgetLineDialog
+                                  line={{
+                                    id: line.budgetLineId,
+                                    projectId: line.projectId,
+                                    rubrique: line.rubrique,
+                                    productTitle: line.productTitle,
+                                    budgetedAmountHTCents: line.budgetedAmountHTCents,
+                                  }}
+                                  allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
+                                />
+                                <ArchiveBudgetLineButton
+                                  id={line.budgetLineId}
+                                  label={line.productTitle ?? line.rubrique}
+                                  isActive={line.isActive}
+                                />
+                              </div>
                             </TableCell>
                           )}
                         </TableRow>
@@ -181,23 +200,36 @@ export default async function ProjectsPage() {
                 {/* Mobile cards */}
                 <div className="flex flex-col gap-2 p-3 md:hidden">
                   {linesWithConsumption.map((line) => (
-                    <div key={line.budgetLineId} className="rounded-lg border bg-background p-3 text-sm">
+                    <div
+                      key={line.budgetLineId}
+                      className={cn("rounded-lg border bg-background p-3 text-sm", !line.isActive && "opacity-60")}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="font-medium">{line.productTitle ?? "—"}</p>
-                          <p className="text-xs text-muted-foreground">{line.rubrique}</p>
+                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {line.rubrique}
+                            {!line.isActive && <Badge variant="outline">Archivée</Badge>}
+                          </p>
                         </div>
                         {canManage && (
-                          <EditBudgetLineDialog
-                            line={{
-                              id: line.budgetLineId,
-                              projectId: line.projectId,
-                              rubrique: line.rubrique,
-                              productTitle: line.productTitle,
-                              budgetedAmountHTCents: line.budgetedAmountHTCents,
-                            }}
-                            allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
-                          />
+                          <div className="flex shrink-0 items-center gap-1">
+                            <EditBudgetLineDialog
+                              line={{
+                                id: line.budgetLineId,
+                                projectId: line.projectId,
+                                rubrique: line.rubrique,
+                                productTitle: line.productTitle,
+                                budgetedAmountHTCents: line.budgetedAmountHTCents,
+                              }}
+                              allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
+                            />
+                            <ArchiveBudgetLineButton
+                              id={line.budgetLineId}
+                              label={line.productTitle ?? line.rubrique}
+                              isActive={line.isActive}
+                            />
+                          </div>
                         )}
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-2">

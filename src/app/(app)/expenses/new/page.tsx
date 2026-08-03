@@ -9,7 +9,7 @@ export default async function NewExpensePage() {
 
   const [projects, budgetLines] = await Promise.all([
     prisma.project.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.budgetLine.findMany(),
+    prisma.budgetLine.findMany({ where: { isActive: true } }),
   ]);
 
   const allowedStatuses: ExpenseStatus[] =

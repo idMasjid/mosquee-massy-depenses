@@ -101,3 +101,19 @@ export async function updateBudgetLine(id: string, raw: unknown): Promise<Action
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+export async function setProjectActive(id: string, isActive: boolean): Promise<ActionResult> {
+  await requireRole(["ADMIN", "IT"]);
+  await prisma.project.update({ where: { id }, data: { isActive } });
+  revalidatePath("/projects");
+  revalidatePath("/expenses/new");
+  return { success: true };
+}
+
+export async function setBudgetLineActive(id: string, isActive: boolean): Promise<ActionResult> {
+  await requireRole(["ADMIN", "IT"]);
+  await prisma.budgetLine.update({ where: { id }, data: { isActive } });
+  revalidatePath("/projects");
+  revalidatePath("/expenses/new");
+  return { success: true };
+}

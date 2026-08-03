@@ -15,7 +15,9 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
 
   const [expense, projects, budgetLines] = await Promise.all([
     prisma.expense.findUnique({ where: { id } }),
-    prisma.project.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    // Not filtered to isActive: an expense may belong to a project/line that's since
+    // been archived, and it must still show up as the current selection when editing.
+    prisma.project.findMany({ orderBy: { name: "asc" } }),
     prisma.budgetLine.findMany(),
   ]);
 

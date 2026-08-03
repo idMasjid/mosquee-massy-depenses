@@ -12,6 +12,7 @@ export type BudgetLineTotal = {
   realiseCents: number;
   engageCents: number;
   remainingCents: number;
+  isActive: boolean;
 };
 
 export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
@@ -47,6 +48,7 @@ export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
       realiseCents: t.realise,
       engageCents: t.engage,
       remainingCents: line.budgetedAmountHTCents - t.realise - t.engage,
+      isActive: line.isActive,
     };
   });
 }
