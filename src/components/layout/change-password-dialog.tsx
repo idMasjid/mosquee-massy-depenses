@@ -8,7 +8,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { changePasswordSchema, type ChangePasswordValues } from "@/lib/validations/user";
 import { changeOwnPassword } from "@/lib/actions/user-actions";
@@ -55,6 +55,7 @@ export function ChangePasswordDialog() {
               <Input id="confirmPassword" type="password" autoComplete="new-password" {...register("confirmPassword")} />
             </Field>
             <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
               <Button type="submit" disabled={isSubmitting}>
                 Mettre à jour
               </Button>

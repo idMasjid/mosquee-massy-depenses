@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { userUpdateSchema, type UserUpdateValues } from "@/lib/validations/user";
 import { updateUser } from "@/lib/actions/user-actions";
@@ -98,6 +98,7 @@ export function EditUserDialog({
             )}
           />
           <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
             <Button type="submit" disabled={isSubmitting}>
               Enregistrer
             </Button>

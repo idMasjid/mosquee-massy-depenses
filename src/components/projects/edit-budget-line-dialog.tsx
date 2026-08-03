@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { budgetLineUpdateSchema, type BudgetLineUpdateValues } from "@/lib/validations/project";
 import { updateBudgetLine } from "@/lib/actions/project-actions";
@@ -126,6 +126,7 @@ export function EditBudgetLineDialog({
             />
           </Field>
           <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
             <Button type="submit" disabled={isSubmitting}>
               Enregistrer
             </Button>

@@ -62,7 +62,6 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
           paymentType: expense.paymentType ?? undefined,
           paymentReference: expense.paymentReference ?? undefined,
           productTitle: expense.productTitle,
-          segment: expense.segment ?? undefined,
           projectId: expense.projectId,
           budgetLineId: expense.budgetLineId ?? undefined,
           rubriqueLabel: expense.rubriqueLabel,

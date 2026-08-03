@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { updateAllowedRubrique } from "@/lib/actions/rubrique-actions";
 
@@ -60,6 +60,7 @@ export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; ru
             </p>
           )}
           <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
             <Button type="submit" disabled={isSubmitting}>
               Enregistrer
             </Button>

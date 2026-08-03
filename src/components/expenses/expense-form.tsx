@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ export function ExpenseForm({
   expenseId?: string;
   defaultValues?: Partial<ExpenseFormValues>;
 }) {
+  const router = useRouter();
   const {
     register,
     control,
@@ -190,10 +192,6 @@ export function ExpenseForm({
               )}
             />
           </Field>
-
-          <Field label="Segment" htmlFor="segment">
-            <Input id="segment" {...register("segment")} />
-          </Field>
         </div>
       </section>
 
@@ -238,7 +236,7 @@ export function ExpenseForm({
           <Field label="TVA (€)" htmlFor="vatAmount" error={errors.vatAmount?.message}>
             <Input id="vatAmount" type="number" step="0.01" {...register("vatAmount", { setValueAs: numeric })} />
           </Field>
-          <Field label="Total HT (€)" htmlFor="totalHT" required error={errors.totalHT?.message}>
+          <Field label="Total HT (€)" htmlFor="totalHT" error={errors.totalHT?.message}>
             <Input id="totalHT" type="number" step="0.01" {...register("totalHT", { setValueAs: numeric })} />
           </Field>
           <Field label="Total TTC (€)" htmlFor="totalTTC" required error={errors.totalTTC?.message}>
@@ -275,6 +273,9 @@ export function ExpenseForm({
       </section>
 
       <div className="flex justify-end gap-2 border-t pt-4">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Annuler
+        </Button>
         <Button type="submit" disabled={isSubmitting}>
           {expenseId ? "Enregistrer" : "Créer la dépense"}
         </Button>

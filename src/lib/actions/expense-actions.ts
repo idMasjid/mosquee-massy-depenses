@@ -16,7 +16,7 @@ function computeCents(input: ExpenseFormValues) {
   const deliveryFeeCents = toCents(input.deliveryFee ?? 0);
   const importFeeCents = toCents(input.importFee ?? 0);
   const discountCents = toCents(input.discount ?? 0);
-  const totalHTCents = toCents(input.totalHT);
+  const totalHTCents = toCents(input.totalHT ?? 0);
   const totalTTCCents = toCents(input.totalTTC);
   const vatAmountCents = input.vatAmount != null ? toCents(input.vatAmount) : null;
   const vatRateBps = input.vatRate != null ? Math.round(input.vatRate * 100) : null;
@@ -62,7 +62,6 @@ export async function createExpense(raw: unknown): Promise<ActionResult> {
       invoiceLink: input.invoiceLink || null,
       quantity: input.quantity,
       productTitle: input.productTitle,
-      segment: input.segment || null,
       rubriqueLabel: input.rubriqueLabel,
       paymentType: input.paymentType || null,
       paymentReference: input.paymentReference || null,
@@ -120,7 +119,6 @@ export async function updateExpense(id: string, raw: unknown): Promise<ActionRes
       invoiceLink: input.invoiceLink || null,
       quantity: input.quantity,
       productTitle: input.productTitle,
-      segment: input.segment || null,
       rubriqueLabel: input.rubriqueLabel,
       paymentType: input.paymentType || null,
       paymentReference: input.paymentReference || null,

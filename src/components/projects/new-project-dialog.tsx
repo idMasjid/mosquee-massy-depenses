@@ -8,7 +8,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { projectFormSchema, type ProjectFormValues } from "@/lib/validations/project";
 import { createProject } from "@/lib/actions/project-actions";
@@ -51,6 +51,7 @@ export function NewProjectDialog() {
             <Textarea id="description" rows={3} {...register("description")} />
           </Field>
           <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
             <Button type="submit" disabled={isSubmitting}>
               Créer
             </Button>

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { allowedRubriqueFormSchema, type AllowedRubriqueFormValues } from "@/lib/validations/rubrique";
 import { createAllowedRubrique } from "@/lib/actions/rubrique-actions";
@@ -82,6 +82,7 @@ export function NewRubriqueDialog({ projects }: { projects: { id: string; name: 
             <Input id="rubrique" {...register("rubrique")} />
           </Field>
           <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
             <Button type="submit" disabled={isSubmitting}>
               Ajouter
             </Button>

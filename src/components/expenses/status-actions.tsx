@@ -86,6 +86,9 @@ export function StatusActions({
             rows={3}
           />
           <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTarget(null)} disabled={pending}>
+              Annuler
+            </Button>
             <Button onClick={confirm} disabled={pending}>
               Confirmer
             </Button>
