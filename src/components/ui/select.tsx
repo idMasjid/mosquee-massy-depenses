@@ -63,7 +63,12 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // Disabled by default: this mode turns off floating-ui's normal anchor
+  // tracking and repositions the popup via custom scroll-sync logic that
+  // doesn't account for whole-page scroll (e.g. the browser auto-scrolling
+  // to an invalid field on failed form submit), leaving the popup stuck at
+  // a stale position and swallowing the next click meant for the page below.
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
