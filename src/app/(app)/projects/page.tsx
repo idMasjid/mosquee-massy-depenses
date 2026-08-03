@@ -2,10 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/rbac";
 import { getBudgetOverview } from "@/lib/aggregations";
 import { formatEUR } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { NewBudgetLineDialog } from "@/components/projects/new-budget-line-dialog";
 import { EditBudgetLineDialog } from "@/components/projects/edit-budget-line-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ConsumptionBar, BarTooltip } from "@/components/budget/consumption-bar";
+import { consumptionPct } from "@/lib/consumption";
 
 export default async function ProjectsPage() {
   const session = await requireSession();
@@ -50,20 +53,55 @@ export default async function ProjectsPage() {
 
       {projects.map((project) => {
         const lines = linesByProject.get(project.id) ?? [];
+        const linesWithConsumption = lines.map((line) => ({
+          ...line,
+          good: line.remainingCents >= 0,
+          pct: consumptionPct(line.budgetedAmountHTCents, line.realiseCents + line.engageCents, line.remainingCents),
+        }));
         const totalBudget = lines.reduce((s, l) => s + l.budgetedAmountHTCents, 0);
-        const totalSpent = lines.reduce((s, l) => s + l.realiseCents + l.engageCents, 0);
+        const totalRealise = lines.reduce((s, l) => s + l.realiseCents, 0);
+        const totalEngage = lines.reduce((s, l) => s + l.engageCents, 0);
+        const totalRestant = totalBudget - totalRealise - totalEngage;
+        const totalGood = totalRestant >= 0;
+        const totalPct = consumptionPct(totalBudget, totalRealise + totalEngage, totalRestant);
 
         return (
           <div key={project.id} className="rounded-xl border bg-card">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
               <div>
                 <h2 className="font-semibold">{project.name}</h2>
                 {project.description && (
                   <p className="text-sm text-muted-foreground">{project.description}</p>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground">
-                {formatEUR(totalSpent)} / {formatEUR(totalBudget)}
+              <div className="flex items-center gap-3">
+                <span className="flex flex-col items-end gap-1.5">
+                  <span className="text-xs text-muted-foreground">
+                    {formatEUR(totalRealise + totalEngage)} / {formatEUR(totalBudget)}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-right text-sm font-semibold tabular-nums",
+                      totalGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                    )}
+                  >
+                    {formatEUR(totalRestant)} restant
+                  </span>
+                </span>
+                <ConsumptionBar
+                  pct={totalPct}
+                  good={totalGood}
+                  tooltip={
+                    <BarTooltip
+                      title={project.name}
+                      budgetCents={totalBudget}
+                      realiseCents={totalRealise}
+                      engageCents={totalEngage}
+                      restantCents={totalRestant}
+                    />
+                  }
+                  className="w-24"
+                />
               </div>
             </div>
             {lines.length === 0 && (
@@ -87,17 +125,38 @@ export default async function ProjectsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {lines.map((line) => (
+                      {linesWithConsumption.map((line) => (
                         <TableRow key={line.budgetLineId}>
                           <TableCell>{line.rubrique}</TableCell>
                           <TableCell className="text-muted-foreground">{line.productTitle ?? "—"}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.budgetedAmountHTCents)}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.realiseCents)}</TableCell>
                           <TableCell className="text-right">{formatEUR(line.engageCents)}</TableCell>
-                          <TableCell
-                            className={`text-right font-medium ${line.remainingCents < 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}
-                          >
-                            {formatEUR(line.remainingCents)}
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <ConsumptionBar
+                                pct={line.pct}
+                                good={line.good}
+                                tooltip={
+                                  <BarTooltip
+                                    title={line.productTitle ?? line.rubrique}
+                                    budgetCents={line.budgetedAmountHTCents}
+                                    realiseCents={line.realiseCents}
+                                    engageCents={line.engageCents}
+                                    restantCents={line.remainingCents}
+                                  />
+                                }
+                                className="w-16"
+                              />
+                              <span
+                                className={cn(
+                                  "min-w-16 text-right font-semibold tabular-nums",
+                                  line.good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                                )}
+                              >
+                                {formatEUR(line.remainingCents)}
+                              </span>
+                            </div>
                           </TableCell>
                           {canManage && (
                             <TableCell>
@@ -121,7 +180,7 @@ export default async function ProjectsPage() {
 
                 {/* Mobile cards */}
                 <div className="flex flex-col gap-2 p-3 md:hidden">
-                  {lines.map((line) => (
+                  {linesWithConsumption.map((line) => (
                     <div key={line.budgetLineId} className="rounded-lg border bg-background p-3 text-sm">
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -155,9 +214,30 @@ export default async function ProjectsPage() {
                           <p className="tabular-nums">{formatEUR(line.engageCents)}</p>
                         </div>
                       </div>
-                      <p className={`mt-2 text-right font-semibold tabular-nums ${line.remainingCents < 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
-                        {formatEUR(line.remainingCents)}
-                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <ConsumptionBar
+                          pct={line.pct}
+                          good={line.good}
+                          tooltip={
+                            <BarTooltip
+                              title={line.productTitle ?? line.rubrique}
+                              budgetCents={line.budgetedAmountHTCents}
+                              realiseCents={line.realiseCents}
+                              engageCents={line.engageCents}
+                              restantCents={line.remainingCents}
+                            />
+                          }
+                          className="flex-1"
+                        />
+                        <span
+                          className={cn(
+                            "shrink-0 text-sm font-semibold tabular-nums",
+                            line.good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                          )}
+                        >
+                          {formatEUR(line.remainingCents)}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

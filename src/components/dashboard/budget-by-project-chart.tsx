@@ -13,10 +13,13 @@ import { CHART_COLORS } from "@/lib/chart-colors";
 import { fromCents } from "@/lib/money";
 
 const chartConfig = {
-  realise: { label: "Réalisé", theme: CHART_COLORS.good },
+  realise: { label: "Réalisé", theme: { light: "#059669", dark: "#34d399" } },
   engage: { label: "Engagé", theme: CHART_COLORS.blue },
-  restant: { label: "Restant", theme: CHART_COLORS.neutralBaseline },
+  restant: { label: "Restant", theme: { light: "var(--muted)", dark: "var(--muted)" } },
 } satisfies ChartConfig;
+
+const BAR_SIZE = 22;
+const ROW_HEIGHT = 44;
 
 export type ProjectBudgetDatum = {
   projectName: string;
@@ -33,9 +36,11 @@ export function BudgetByProjectChart({ data }: { data: ProjectBudgetDatum[] }) {
     restant: Math.max(fromCents(d.restant), 0),
   }));
 
+  const chartHeight = Math.max(160, chartData.length * ROW_HEIGHT + 40);
+
   return (
-    <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
-      <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8 }}>
+    <ChartContainer config={chartConfig} className="aspect-auto w-full" style={{ height: chartHeight }}>
+      <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8 }} barSize={BAR_SIZE}>
         <CartesianGrid horizontal={false} strokeDasharray="3 3" />
         <XAxis type="number" tickFormatter={(v) => `${v}€`} />
         <YAxis
@@ -48,9 +53,9 @@ export function BudgetByProjectChart({ data }: { data: ProjectBudgetDatum[] }) {
         />
         <ChartTooltip content={<ChartTooltipContent />} />
         <ChartLegend content={<ChartLegendContent />} />
-        <Bar dataKey="realise" stackId="a" fill="var(--color-realise)" radius={[4, 0, 0, 4]} />
+        <Bar dataKey="realise" stackId="a" fill="var(--color-realise)" radius={[BAR_SIZE / 2, 0, 0, BAR_SIZE / 2]} />
         <Bar dataKey="engage" stackId="a" fill="var(--color-engage)" />
-        <Bar dataKey="restant" stackId="a" fill="var(--color-restant)" radius={[0, 4, 4, 0]} />
+        <Bar dataKey="restant" stackId="a" fill="var(--color-restant)" radius={[0, BAR_SIZE / 2, BAR_SIZE / 2, 0]} />
       </BarChart>
     </ChartContainer>
   );
