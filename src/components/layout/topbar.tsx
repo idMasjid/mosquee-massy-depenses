@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NavLinks } from "@/components/layout/nav-links";
 import { UserMenu } from "@/components/layout/user-menu";
+import { Logo } from "@/components/layout/logo";
 import type { Role } from "@/lib/constants";
 
 export function Topbar({
@@ -24,7 +26,8 @@ export function Topbar({
           <Menu className="size-5" />
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="border-b">
+          <SheetHeader className="flex-row items-center gap-2.5 border-b">
+            <Logo className="h-8" />
             <SheetTitle>Dépenses — Mosquée de Massy</SheetTitle>
           </SheetHeader>
           <div className="p-3">
@@ -32,6 +35,10 @@ export function Topbar({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
+        <Logo className="h-7" />
+      </Link>
 
       <div className="flex-1" />
 

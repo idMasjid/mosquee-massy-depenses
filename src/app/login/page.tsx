@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth, signIn, isGoogleSignInEnabled } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { LoginForm } from "@/components/auth/login-form";
+import { Logo } from "@/components/layout/logo";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -12,7 +13,8 @@ export default async function LoginPage() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/30 p-6">
       <div className="flex w-full max-w-sm flex-col gap-6 rounded-xl border bg-card p-8 shadow-sm">
-        <div className="text-center">
+        <div className="flex flex-col items-center text-center">
+          <Logo className="mb-3 h-16" />
           <h1 className="text-xl font-semibold">Gestion des dépenses</h1>
           <p className="mt-1 text-sm text-muted-foreground">Mosquée de Massy</p>
         </div>
