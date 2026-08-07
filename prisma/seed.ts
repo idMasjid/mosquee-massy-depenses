@@ -22,8 +22,8 @@ const prisma = new PrismaClient({ adapter });
 const SEED_DATA_DIR = path.join(__dirname, "seed-data");
 const LEGACY_DOMAIN = "import.mosquee-massy.local";
 
-const ADMIN_EMAIL = "ai@mosquee-massy.fr";
-const ADMIN_INITIAL_PASSWORD = "ChangeMoi123!";
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
+const ADMIN_INITIAL_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMoi123!";
 
 async function upsertPlaceholderUser(name: string) {
   const email = `${slugifyName(name)}@${LEGACY_DOMAIN}`;

@@ -20,14 +20,15 @@ npm install
 npm run dev
 ```
 
-Ouvrez [http://localhost:3000](http://localhost:3000) et connectez-vous avec un compte admin déjà créé :
+### 3. Créer le compte admin
 
-| Email | Mot de passe |
-|---|---|
-| `ai@mosquee-massy.fr` | `ChangeMoi123!` |
-| `tama@mosquee-massy.fr` | `ChangeMoi123!` |
+```bash
+npm run db:seed
+```
 
-**Changez ce mot de passe dès la première connexion** via le menu utilisateur (avatar en haut à droite → "Changer mon mot de passe"). Ajoutez ensuite les autres membres des équipes IT et Bureau depuis **Utilisateurs** — l'admin choisit un mot de passe initial pour chaque nouveau compte, que la personne pourra changer elle-même après connexion.
+Ce script crée un compte administrateur initial. Par défaut : `admin@example.com` / `ChangeMoi123!` — personnalisable via `SEED_ADMIN_EMAIL` et `SEED_ADMIN_PASSWORD` dans `.env.local` (voir `.env.example`).
+
+Ouvrez [http://localhost:3000](http://localhost:3000) et connectez-vous avec ce compte. **Changez le mot de passe dès la première connexion** via le menu utilisateur (avatar en haut à droite → "Changer mon mot de passe"). Ajoutez ensuite les autres membres des équipes IT et Bureau depuis **Utilisateurs** — l'admin choisit un mot de passe initial pour chaque nouveau compte, que la personne pourra changer elle-même après connexion.
 
 ### Authentification
 
