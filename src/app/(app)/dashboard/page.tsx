@@ -1,8 +1,8 @@
-import { getBudgetOverview, getStatusBreakdown, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
+import { getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
 import { formatEUR, fromCents } from "@/lib/money";
 import { StatTile } from "@/components/dashboard/stat-tile";
-import { BudgetByProjectChart } from "@/components/dashboard/budget-by-project-chart";
-import { StatusBreakdownChart } from "@/components/dashboard/status-breakdown-chart";
+import { DivergingBarList } from "@/components/dashboard/diverging-bar-list";
+import { RubriqueBreakdownPanel } from "@/components/dashboard/rubrique-breakdown-panel";
 import { SpendTimeseriesChart, type SpendPoint } from "@/components/dashboard/spend-timeseries-chart";
 
 function buildSpendSeries(monthly: { month: string; realiseCents: number }[], runRateCents: number): SpendPoint[] {
@@ -35,26 +35,54 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
 }
 
 export default async function DashboardPage() {
-  const [overview, statusBreakdown, monthly, forecast] = await Promise.all([
+  const [overview, monthly, forecast] = await Promise.all([
     getBudgetOverview(),
-    getStatusBreakdown(),
     getMonthlySpend(),
     getForecastSummary(),
   ]);
 
-  const byProject = new Map<string, { projectName: string; realise: number; engage: number; restant: number }>();
+  const byProject = new Map<
+    string,
+    { projectName: string; budget: number; realise: number; engage: number; restant: number }
+  >();
+  const rubriqueBudgets = new Map<
+    string,
+    { projectId: string; projectName: string; rubrique: string; budget: number; realise: number; engage: number; restant: number }
+  >();
   for (const line of overview) {
     const entry = byProject.get(line.projectId) ?? {
       projectName: line.projectName,
+      budget: 0,
       realise: 0,
       engage: 0,
       restant: 0,
     };
+    entry.budget += line.budgetedAmountHTCents;
     entry.realise += line.realiseCents;
     entry.engage += line.engageCents;
     entry.restant += line.remainingCents;
     byProject.set(line.projectId, entry);
+
+    const rubriqueKey = `${line.projectId}::${line.rubrique}`;
+    const rubriqueEntry = rubriqueBudgets.get(rubriqueKey) ?? {
+      projectId: line.projectId,
+      projectName: line.projectName,
+      rubrique: line.rubrique,
+      budget: 0,
+      realise: 0,
+      engage: 0,
+      restant: 0,
+    };
+    rubriqueEntry.budget += line.budgetedAmountHTCents;
+    rubriqueEntry.realise += line.realiseCents;
+    rubriqueEntry.engage += line.engageCents;
+    rubriqueEntry.restant += line.remainingCents;
+    rubriqueBudgets.set(rubriqueKey, rubriqueEntry);
   }
+
+  const projects = [...byProject.entries()]
+    .map(([id, p]) => ({ id, name: p.projectName }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents);
 
@@ -85,12 +113,18 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Budget par projet</h2>
-          <BudgetByProjectChart data={[...byProject.values()]} />
+          <h2 className="text-sm font-semibold text-muted-foreground">Budget par projet</h2>
+          <p className="mb-2 text-xs text-muted-foreground">
+            % et montant affichés = restant par rapport au budget alloué (survoler la barre pour le détail)
+          </p>
+          <DivergingBarList data={[...byProject.values()].map((p) => ({ label: p.projectName, ...p }))} />
         </div>
         <div className="rounded-xl border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Répartition par statut</h2>
-          <StatusBreakdownChart data={statusBreakdown} />
+          <h2 className="text-sm font-semibold text-muted-foreground">Budget par catégorie</h2>
+          <p className="mb-2 text-xs text-muted-foreground">
+            % et montant = restant par catégorie — filtrable par projet, groupé par projet si plusieurs sont sélectionnés
+          </p>
+          <RubriqueBreakdownPanel data={[...rubriqueBudgets.values()]} projects={projects} />
         </div>
       </div>
 

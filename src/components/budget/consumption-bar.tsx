@@ -85,3 +85,57 @@ export function ConsumptionBar({
     </Tooltip>
   );
 }
+
+/**
+ * Diverging "restant" bar: grows left (red) from a centered zero-axis when over
+ * budget, right (green) when budget remains. `pct` is the restant % (can exceed
+ * ±100, visually clamped at ±100).
+ */
+export function DivergingBar({
+  pct,
+  tooltip,
+  className,
+}: {
+  pct: number;
+  tooltip?: ReactNode;
+  className?: string;
+}) {
+  const good = pct >= 0;
+  const magnitude = Math.min(Math.abs(pct), 100);
+  const trackClassName = cn(
+    "relative flex h-3 w-full overflow-hidden rounded-full bg-muted print:bg-neutral-200",
+    className,
+  );
+  const bar = (
+    <>
+      <div className="absolute inset-y-0 left-1/2 z-10 w-px bg-border" />
+      <div className="flex h-full w-1/2 justify-end">
+        {!good && (
+          <div
+            className="h-full rounded-l-full bg-destructive print:bg-red-600"
+            style={{ width: `${magnitude}%` }}
+          />
+        )}
+      </div>
+      <div className="flex h-full w-1/2 justify-start">
+        {good && (
+          <div
+            className="h-full rounded-r-full bg-emerald-600 print:bg-emerald-700"
+            style={{ width: `${magnitude}%` }}
+          />
+        )}
+      </div>
+    </>
+  );
+
+  if (!tooltip) {
+    return <div className={trackClassName}>{bar}</div>;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<div className={trackClassName} />}>{bar}</TooltipTrigger>
+      <TooltipContent className="print:hidden">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}

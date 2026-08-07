@@ -53,21 +53,6 @@ export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
   });
 }
 
-export type StatusBreakdownEntry = { status: ExpenseStatus; count: number; totalCents: number };
-
-export async function getStatusBreakdown(): Promise<StatusBreakdownEntry[]> {
-  const groups = await prisma.expense.groupBy({
-    by: ["status"],
-    _count: { _all: true },
-    _sum: { totalTTCCents: true },
-  });
-  return groups.map((g) => ({
-    status: g.status as ExpenseStatus,
-    count: g._count._all,
-    totalCents: g._sum.totalTTCCents ?? 0,
-  }));
-}
-
 export type MonthlySpendEntry = { month: string; realiseCents: number };
 
 export async function getMonthlySpend(): Promise<MonthlySpendEntry[]> {

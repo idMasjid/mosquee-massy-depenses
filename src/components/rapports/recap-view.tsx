@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatTile } from "@/components/dashboard/stat-tile";
-import { ConsumptionBar, BarTooltip } from "@/components/budget/consumption-bar";
+import { ConsumptionBar, DivergingBar, BarTooltip } from "@/components/budget/consumption-bar";
 import { consumptionPct } from "@/lib/consumption";
 import { formatEUR } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -233,7 +233,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
       <div className="flex flex-col gap-3 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder="Rechercher un projet, une rubrique ou un produit…"
+            placeholder="Rechercher un projet, une catégorie ou un produit…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full md:max-w-xs"
@@ -318,20 +318,24 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                     <span className={cn("text-right text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
                       {formatEUR(g.restantCents)}
                     </span>
-                    <ConsumptionBar
-                      pct={pct}
-                      good={good}
-                      tooltip={
-                        <BarTooltip
-                          title={g.projectName}
-                          budgetCents={g.budgetCents}
-                          realiseCents={g.realiseCents}
-                          engageCents={g.engageCents}
-                          restantCents={g.restantCents}
-                        />
-                      }
-                      className="w-20"
-                    />
+                    <span className="flex items-center gap-1.5">
+                      <span className={cn("text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+                        {pct}%
+                      </span>
+                      <DivergingBar
+                        pct={pct}
+                        tooltip={
+                          <BarTooltip
+                            title={g.projectName}
+                            budgetCents={g.budgetCents}
+                            realiseCents={g.realiseCents}
+                            engageCents={g.engageCents}
+                            restantCents={g.restantCents}
+                          />
+                        }
+                        className="h-5 w-20"
+                      />
+                    </span>
                   </span>
                   <StatusPill good={good} className="justify-self-end" />
                 </div>
@@ -363,9 +367,11 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <ConsumptionBar
+                    <span className={cn("shrink-0 text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                      {pct}%
+                    </span>
+                    <DivergingBar
                       pct={pct}
-                      good={good}
                       tooltip={
                         <BarTooltip
                           title={g.projectName}
@@ -375,7 +381,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                           restantCents={g.restantCents}
                         />
                       }
-                      className="flex-1"
+                      className="h-5 flex-1"
                     />
                     <span className={cn("shrink-0 text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
                       {formatEUR(g.restantCents)}
@@ -388,7 +394,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-40">Rubrique</TableHead>
+                      <TableHead className="w-40">Catégorie</TableHead>
                       <TableHead>Produit</TableHead>
                       <TableHead className="w-28 text-right">
                         <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} className="print:hidden" />
@@ -421,9 +427,16 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                           <TableCell className="text-right tabular-nums">{formatEUR(r.engageCents)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <ConsumptionBar
+                              <span
+                                className={cn(
+                                  "text-xs tabular-nums",
+                                  rowGood ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700",
+                                )}
+                              >
+                                {rowPct}%
+                              </span>
+                              <DivergingBar
                                 pct={rowPct}
-                                good={rowGood}
                                 tooltip={
                                   <BarTooltip
                                     title={r.productTitle ?? r.rubrique}
@@ -433,7 +446,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                                     restantCents={r.restantCents}
                                   />
                                 }
-                                className="w-16"
+                                className="h-5 w-16"
                               />
                               <span
                                 className={cn(
@@ -476,9 +489,16 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                         </div>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <ConsumptionBar
+                        <span
+                          className={cn(
+                            "shrink-0 text-xs tabular-nums",
+                            rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                          )}
+                        >
+                          {rowPct}%
+                        </span>
+                        <DivergingBar
                           pct={rowPct}
-                          good={rowGood}
                           tooltip={
                             <BarTooltip
                               title={r.productTitle ?? r.rubrique}
@@ -488,7 +508,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
                               restantCents={r.restantCents}
                             />
                           }
-                          className="flex-1"
+                          className="h-5 flex-1"
                         />
                         <span
                           className={cn(
