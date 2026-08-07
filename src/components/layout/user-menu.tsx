@@ -55,7 +55,7 @@ export function UserMenu({
         <ChangePasswordDialog />
         <DropdownMenuSeparator />
         <form action={signOutAction}>
-          <DropdownMenuItem render={<button type="submit" className="w-full cursor-pointer" />}>
+          <DropdownMenuItem nativeButton render={<button type="submit" className="w-full cursor-pointer" />}>
             <LogOut className="size-4" />
             Se déconnecter
           </DropdownMenuItem>
