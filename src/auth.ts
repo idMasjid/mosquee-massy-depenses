@@ -34,6 +34,9 @@ if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
 export const isGoogleSignInEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Auth.js only auto-trusts the host in `next dev`; production (`next start`)
+  // requires this explicitly, or every request 500s with UntrustedHost.
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/auth/error",
