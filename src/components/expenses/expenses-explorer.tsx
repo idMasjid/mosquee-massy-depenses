@@ -42,7 +42,7 @@ const columns = [
   columnHelper.accessor("productTitle", { header: "Titre" }),
   columnHelper.accessor("supplierName", { header: "Fournisseur" }),
   columnHelper.accessor("projectName", { header: "Projet" }),
-  columnHelper.accessor("rubriqueLabel", { header: "Rubrique" }),
+  columnHelper.accessor("rubriqueLabel", { header: "Catégorie" }),
   columnHelper.accessor("totalTTCCents", {
     header: "Montant TTC",
     cell: (info) => formatEUR(info.getValue()),

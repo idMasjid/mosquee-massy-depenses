@@ -38,7 +38,7 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
   if (!allowed) {
     return {
       success: false,
-      error: "Cette rubrique n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Rubriques.",
+      error: "Cette catégorie n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Catégories.",
     };
   }
 
@@ -78,7 +78,7 @@ export async function updateBudgetLine(id: string, raw: unknown): Promise<Action
   if (!allowed) {
     return {
       success: false,
-      error: "Cette rubrique n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Rubriques.",
+      error: "Cette catégorie n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Catégories.",
     };
   }
 

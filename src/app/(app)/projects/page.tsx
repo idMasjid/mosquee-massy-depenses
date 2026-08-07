@@ -36,7 +36,7 @@ export default async function ProjectsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projets &amp; budgets</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Suivi des budgets alloués par projet et rubrique.
+            Suivi des budgets alloués par projet et catégorie.
           </p>
         </div>
         {canManage && (
@@ -122,7 +122,7 @@ export default async function ProjectsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Rubrique</TableHead>
+                        <TableHead>Catégorie</TableHead>
                         <TableHead>Produit</TableHead>
                         <TableHead className="text-right">Budget</TableHead>
                         <TableHead className="text-right">Réalisé</TableHead>

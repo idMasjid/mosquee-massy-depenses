@@ -35,7 +35,7 @@ export function NewRubriqueDialog({ projects }: { projects: { id: string; name: 
   const onSubmit = async (values: AllowedRubriqueFormValues) => {
     const result = await createAllowedRubrique(values);
     if (result.success) {
-      toast.success("Rubrique autorisée ajoutée.");
+      toast.success("Catégorie autorisée ajoutée.");
       reset({ projectId: "", rubrique: "" });
       setOpen(false);
     } else {
@@ -47,11 +47,11 @@ export function NewRubriqueDialog({ projects }: { projects: { id: string; name: 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm" />}>
         <Plus className="size-4" />
-        Nouvelle rubrique
+        Nouvelle catégorie
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouvelle rubrique autorisée</DialogTitle>
+          <DialogTitle>Nouvelle catégorie autorisée</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Field label="Projet" required error={errors.projectId?.message}>
@@ -78,7 +78,7 @@ export function NewRubriqueDialog({ projects }: { projects: { id: string; name: 
               )}
             />
           </Field>
-          <Field label="Rubrique" htmlFor="rubrique" required error={errors.rubrique?.message}>
+          <Field label="Catégorie" htmlFor="rubrique" required error={errors.rubrique?.message}>
             <Input id="rubrique" {...register("rubrique")} />
           </Field>
           <DialogFooter>

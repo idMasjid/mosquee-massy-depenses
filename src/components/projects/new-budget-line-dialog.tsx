@@ -98,7 +98,7 @@ export function NewBudgetLineDialog({
               )}
             />
           </Field>
-          <Field label="Rubrique" required error={errors.rubrique?.message}>
+          <Field label="Catégorie" required error={errors.rubrique?.message}>
             <Controller
               control={control}
               name="rubrique"
@@ -111,13 +111,13 @@ export function NewBudgetLineDialog({
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue
-                      placeholder={projectId ? "Sélectionner une rubrique" : "Choisir un projet d'abord"}
+                      placeholder={projectId ? "Sélectionner une catégorie" : "Choisir un projet d'abord"}
                     />
                   </SelectTrigger>
                   <SelectContent>
                     {availableRubriques.length === 0 ? (
                       <p className="p-2 text-sm text-muted-foreground">
-                        Aucune rubrique autorisée pour ce projet. Ajoutez-la dans Rubriques.
+                        Aucune catégorie autorisée pour ce projet. Ajoutez-la dans Catégories.
                       </p>
                     ) : (
                       availableRubriques.map((r) => (

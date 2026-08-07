@@ -22,7 +22,7 @@ export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; ru
   const onSubmit = async (values: { rubrique: string }) => {
     const result = await updateAllowedRubrique(id, values.rubrique);
     if (result.success) {
-      toast.success("Rubrique renommée.");
+      toast.success("Catégorie renommée.");
       setOpen(false);
     } else {
       toast.error(result.error);
@@ -46,12 +46,12 @@ export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; ru
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Field
-            label="Rubrique"
+            label="Catégorie"
             htmlFor="rubrique"
             required
             error={errors.rubrique?.message}
           >
-            <Input id="rubrique" {...register("rubrique", { required: "La rubrique est requise." })} />
+            <Input id="rubrique" {...register("rubrique", { required: "La catégorie est requise." })} />
           </Field>
           {lineCount > 0 && (
             <p className="text-xs text-muted-foreground">

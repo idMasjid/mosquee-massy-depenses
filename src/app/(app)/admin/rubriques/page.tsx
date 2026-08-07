@@ -30,9 +30,9 @@ export default async function AdminRubriquesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Rubriques</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Catégories</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Combinaisons Projet / Rubrique autorisées — seules celles listées ici peuvent être choisies lors de
+            Combinaisons Projet / Catégorie autorisées — seules celles listées ici peuvent être choisies lors de
             la création d&apos;une ligne budgétaire ou d&apos;une dépense.
           </p>
         </div>
@@ -49,7 +49,7 @@ export default async function AdminRubriquesPage() {
               <h2 className="font-semibold">{project.name}</h2>
             </div>
             {rubriques.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">Aucune rubrique autorisée pour ce projet.</p>
+              <p className="p-4 text-sm text-muted-foreground">Aucune catégorie autorisée pour ce projet.</p>
             ) : (
               <ul className="flex flex-col divide-y">
                 {rubriques.map((r) => (

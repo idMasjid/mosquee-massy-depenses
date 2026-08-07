@@ -13,7 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/expenses", label: "Dépenses", icon: Receipt, roles: ["ADMIN", "IT", "BUREAU"] },
   { href: "/projects", label: "Projets & budgets", icon: FolderKanban, roles: ["ADMIN", "IT", "BUREAU"] },
   { href: "/rapports", label: "Récapitulatif", icon: FileText, roles: ["ADMIN", "IT", "BUREAU"] },
-  { href: "/admin/rubriques", label: "Rubriques", icon: Tags, roles: ["ADMIN", "IT"] },
+  { href: "/admin/rubriques", label: "Catégories", icon: Tags, roles: ["ADMIN", "IT"] },
   { href: "/admin/users", label: "Utilisateurs", icon: Users, roles: ["ADMIN"] },
 ];
 

@@ -8,7 +8,7 @@ export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
 export const budgetLineFormSchema = z.object({
   projectId: z.string().min(1, { error: "Le projet est requis." }),
-  rubrique: z.string().min(1, { error: "La rubrique est requise." }),
+  rubrique: z.string().min(1, { error: "La catégorie est requise." }),
   productTitle: z.string().optional(),
   budgetedAmountHT: z.number({ error: "Le budget est requis." }).min(0),
   notes: z.string().optional(),

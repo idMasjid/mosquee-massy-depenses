@@ -26,7 +26,7 @@ export const expenseFormSchema = z.object({
   productTitle: z.string().min(1, { error: "Le titre du produit est requis." }),
   projectId: z.string().min(1, { error: "Le projet est requis." }),
   budgetLineId: z.string().optional(),
-  rubriqueLabel: z.string().min(1, { error: "La rubrique est requise." }),
+  rubriqueLabel: z.string().min(1, { error: "La catégorie est requise." }),
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;

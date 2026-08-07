@@ -89,7 +89,7 @@ export function EditBudgetLineDialog({
           <DialogTitle>Modifier la ligne budgétaire</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Field label="Rubrique" required error={errors.rubrique?.message}>
+          <Field label="Catégorie" required error={errors.rubrique?.message}>
             <Controller
               control={control}
               name="rubrique"
@@ -100,7 +100,7 @@ export function EditBudgetLineDialog({
                   onValueChange={field.onChange}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionner une rubrique" />
+                    <SelectValue placeholder="Sélectionner une catégorie" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableRubriques.map((r) => (

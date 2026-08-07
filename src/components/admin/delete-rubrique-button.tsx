@@ -41,7 +41,7 @@ export function DeleteRubriqueButton({ id, rubrique, lineCount }: { id: string; 
           <AlertDialogTitle>Retirer « {rubrique} » ?</AlertDialogTitle>
           <AlertDialogDescription>
             {lineCount > 0
-              ? `${lineCount} ligne${lineCount > 1 ? "s" : ""} budgétaire${lineCount > 1 ? "s" : ""} existante${lineCount > 1 ? "s" : ""} utilise${lineCount > 1 ? "nt" : ""} déjà cette rubrique et ne sera${lineCount > 1 ? "" : "z"} pas affectée${lineCount > 1 ? "s" : ""}. Elle ne sera simplement plus proposée pour de nouvelles lignes ou dépenses.`
+              ? `${lineCount} ligne${lineCount > 1 ? "s" : ""} budgétaire${lineCount > 1 ? "s" : ""} existante${lineCount > 1 ? "s" : ""} utilise${lineCount > 1 ? "nt" : ""} déjà cette catégorie et ne sera${lineCount > 1 ? "" : "z"} pas affectée${lineCount > 1 ? "s" : ""}. Elle ne sera simplement plus proposée pour de nouvelles lignes ou dépenses.`
               : "Elle ne sera plus proposée pour de nouvelles lignes budgétaires ou dépenses."}
           </AlertDialogDescription>
         </AlertDialogHeader>

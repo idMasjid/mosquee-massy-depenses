@@ -15,7 +15,7 @@ export async function createAllowedRubrique(raw: unknown): Promise<ActionResult>
   try {
     await prisma.allowedRubrique.create({ data: parsed.data });
   } catch {
-    return { success: false, error: "Cette rubrique est déjà autorisée pour ce projet." };
+    return { success: false, error: "Cette catégorie est déjà autorisée pour ce projet." };
   }
   revalidatePath("/admin/rubriques");
   return { success: true };
@@ -35,13 +35,13 @@ export async function updateAllowedRubrique(id: string, rawRubrique: unknown): P
   await requireRole(["ADMIN", "IT"]);
   const parsed = allowedRubriqueFormSchema.shape.rubrique.safeParse(rawRubrique);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Rubrique invalide." };
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Catégorie invalide." };
   }
   const newRubrique = parsed.data;
 
   const current = await prisma.allowedRubrique.findUnique({ where: { id } });
   if (!current) {
-    return { success: false, error: "Rubrique introuvable." };
+    return { success: false, error: "Catégorie introuvable." };
   }
   if (current.rubrique === newRubrique) {
     return { success: true };
@@ -60,7 +60,7 @@ export async function updateAllowedRubrique(id: string, rawRubrique: unknown): P
       }),
     ]);
   } catch {
-    return { success: false, error: "Cette rubrique est déjà autorisée pour ce projet." };
+    return { success: false, error: "Cette catégorie est déjà autorisée pour ce projet." };
   }
 
   revalidatePath("/admin/rubriques");

@@ -154,7 +154,7 @@ export function ExpenseForm({
             />
           </Field>
 
-          <Field label="Rubrique" required error={errors.rubriqueLabel?.message}>
+          <Field label="Catégorie" required error={errors.rubriqueLabel?.message}>
             <Controller
               control={control}
               name="budgetLineId"
@@ -172,7 +172,7 @@ export function ExpenseForm({
                   disabled={!projectId}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={projectId ? "Sélectionner une rubrique" : "Choisir un projet d'abord"} />
+                    <SelectValue placeholder={projectId ? "Sélectionner une catégorie" : "Choisir un projet d'abord"} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableLines.length === 0 ? (
