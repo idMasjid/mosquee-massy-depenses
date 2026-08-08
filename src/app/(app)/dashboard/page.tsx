@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
 import { formatEUR, fromCents } from "@/lib/money";
 import { StatTile } from "@/components/dashboard/stat-tile";
-import { SortableProjectBudgetPanel } from "@/components/dashboard/sortable-project-budget-panel";
-import { RubriqueBreakdownPanel } from "@/components/dashboard/rubrique-breakdown-panel";
+import { DashboardProjectPanels } from "@/components/dashboard/dashboard-project-panels";
 import { SpendTimeseriesChart, type SpendPoint } from "@/components/dashboard/spend-timeseries-chart";
 
 function buildSpendSeries(monthly: { month: string; realiseCents: number }[], runRateCents: number): SpendPoint[] {
@@ -103,7 +102,6 @@ export default async function DashboardPage() {
   const byProjectSorted = [...byProject.entries()].sort(
     (a, b) => (dashboardRank.get(a[0]) ?? 0) - (dashboardRank.get(b[0]) ?? 0),
   );
-  const projects = byProjectSorted.map(([id, p]) => ({ id, name: p.projectName }));
 
   const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents);
 
@@ -132,24 +130,10 @@ export default async function DashboardPage() {
         tone={forecast.projectedYearEndCents > forecast.totalBudgetCents ? "warning" : "default"}
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border bg-card p-4">
-          <h2 className="text-sm font-semibold text-muted-foreground">Budget par projet</h2>
-          <p className="mb-2 text-xs text-muted-foreground">
-            % et montant affichés = restant par rapport au budget alloué (survoler la barre pour le détail)
-          </p>
-          <SortableProjectBudgetPanel
-            data={byProjectSorted.map(([id, p]) => ({ id, label: p.projectName, ...p }))}
-          />
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <h2 className="text-sm font-semibold text-muted-foreground">Budget par catégorie</h2>
-          <p className="mb-2 text-xs text-muted-foreground">
-            % et montant = restant par catégorie — filtrable par projet, groupé par projet si plusieurs sont sélectionnés
-          </p>
-          <RubriqueBreakdownPanel data={[...rubriqueBudgets.values()]} projects={projects} />
-        </div>
-      </div>
+      <DashboardProjectPanels
+        projectBudgets={byProjectSorted.map(([id, p]) => ({ id, label: p.projectName, ...p }))}
+        rubriqueData={[...rubriqueBudgets.values()]}
+      />
 
       <div className="rounded-xl border bg-card p-4">
         <h2 className="mb-2 text-sm font-semibold text-muted-foreground">

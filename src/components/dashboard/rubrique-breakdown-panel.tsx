@@ -9,7 +9,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DivergingBarList, type DivergingBarDatum } from "@/components/dashboard/diverging-bar-list";
 import { SortableGroup, useSortableItem, DragHandle } from "@/components/ui/sortable";
 import { reorderRubriquesDashboard } from "@/lib/actions/rubrique-actions";
-import { reorderProjectsDashboard } from "@/lib/actions/project-actions";
 
 export type ProjectRubriqueBudgetDatum = {
   id: string;
@@ -51,9 +50,16 @@ function toRubriqueList(rows: ProjectRubriqueBudgetDatum[]): DivergingBarDatum[]
 export function RubriqueBreakdownPanel({
   data,
   projects,
+  onReorderProjects,
 }: {
   data: ProjectRubriqueBudgetDatum[];
+  // Already in the order to display — the "Budget par projet" panel owns the
+  // single shared project order (manual drag or "Dépassement" sort) so both
+  // panels stay in sync without a page refresh.
   projects: ProjectRef[];
+  // Absent (or undefined) while a non-manual sort is active upstream —
+  // dragging projects here is disabled in that case, same as during a filter.
+  onReorderProjects?: (orderedIds: string[]) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
@@ -65,15 +71,6 @@ export function RubriqueBreakdownPanel({
   if (data !== prevData) {
     setPrevData(data);
     setDataState(data);
-  }
-
-  // Shared with the "Budget par projet" panel above (same Project.dashboardOrder) —
-  // reordering here also updates that panel, and vice versa.
-  const [projectsState, setProjectsState] = useState(projects);
-  const [prevProjects, setPrevProjects] = useState(projects);
-  if (projects !== prevProjects) {
-    setPrevProjects(projects);
-    setProjectsState(projects);
   }
 
   // Reading localStorage during render would desync from the server-rendered HTML
@@ -104,9 +101,9 @@ export function RubriqueBreakdownPanel({
   }
 
   // Reordering project groups only makes sense against the full, unfiltered
-  // list — same reasoning as disabling drag during search/sort elsewhere.
-  const canDragProjects = selected.size === 0;
-  const visibleProjects = canDragProjects ? projectsState : projectsState.filter((p) => selected.has(p.id));
+  // list, and only while the upstream order is the manual one.
+  const canDragProjects = selected.size === 0 && !!onReorderProjects;
+  const visibleProjects = selected.size === 0 ? projects : projects.filter((p) => selected.has(p.id));
 
   const groups = useMemo(
     () =>
@@ -154,19 +151,6 @@ export function RubriqueBreakdownPanel({
       if (!result.success) {
         toast.error(result.error);
         setDataState(previous);
-      }
-    });
-  }
-
-  function handleProjectReorder(orderedIds: string[]) {
-    const previous = projectsState;
-    const byId = new Map(projectsState.map((p) => [p.id, p]));
-    setProjectsState(orderedIds.map((id) => byId.get(id)!));
-    startTransition(async () => {
-      const result = await reorderProjectsDashboard(orderedIds);
-      if (!result.success) {
-        toast.error(result.error);
-        setProjectsState(previous);
       }
     });
   }
@@ -226,11 +210,13 @@ export function RubriqueBreakdownPanel({
 
       {!canDragProjects && (
         <p className="text-xs text-muted-foreground">
-          Le glisser-déposer des projets est désactivé pendant un filtre — revenez à &quot;Tous les projets&quot; pour réorganiser.
+          {selected.size > 0
+            ? 'Le glisser-déposer des projets est désactivé pendant un filtre — revenez à "Tous les projets" pour réorganiser.'
+            : "Le glisser-déposer des projets est désactivé pendant le tri par dépassement."}
         </p>
       )}
 
-      <SortableGroup ids={groups.map((g) => g.projectId)} onReorder={handleProjectReorder}>
+      <SortableGroup ids={groups.map((g) => g.projectId)} onReorder={onReorderProjects ?? (() => {})}>
         <div className="flex flex-col gap-3">
           {groups.map((g) => (
             <RubriqueGroup
