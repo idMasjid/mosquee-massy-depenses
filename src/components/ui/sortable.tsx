@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   DndContext,
   closestCenter,
@@ -26,6 +26,12 @@ export function SortableGroup({
   children: ReactNode;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // dnd-kit falls back to a module-level counter for its a11y announcement
+  // ids when no `id` is given, which drifts between the server and client
+  // render passes (each nested DndContext bumps it differently) and trips a
+  // hydration mismatch. useId() is deterministic across both, so pass it
+  // through explicitly.
+  const contextId = useId();
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -37,7 +43,7 @@ export function SortableGroup({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext id={contextId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
