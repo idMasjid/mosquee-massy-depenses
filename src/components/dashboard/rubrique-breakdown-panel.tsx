@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DivergingBarList, type DivergingBarDatum } from "@/components/dashboard/diverging-bar-list";
+import { SortableGroup, useSortableItem, DragHandle } from "@/components/ui/sortable";
 import { reorderRubriquesDashboard } from "@/lib/actions/rubrique-actions";
+import { reorderProjectsDashboard } from "@/lib/actions/project-actions";
 
 export type ProjectRubriqueBudgetDatum = {
   id: string;
@@ -20,6 +22,8 @@ export type ProjectRubriqueBudgetDatum = {
   engage: number;
   restant: number;
 };
+
+type ProjectRef = { id: string; name: string };
 
 const PROJECT_FILTER_STORAGE_KEY = "dashboard-categorie-breakdown-project-filter";
 
@@ -49,7 +53,7 @@ export function RubriqueBreakdownPanel({
   projects,
 }: {
   data: ProjectRubriqueBudgetDatum[];
-  projects: { id: string; name: string }[];
+  projects: ProjectRef[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
@@ -61,6 +65,15 @@ export function RubriqueBreakdownPanel({
   if (data !== prevData) {
     setPrevData(data);
     setDataState(data);
+  }
+
+  // Shared with the "Budget par projet" panel above (same Project.dashboardOrder) —
+  // reordering here also updates that panel, and vice versa.
+  const [projectsState, setProjectsState] = useState(projects);
+  const [prevProjects, setPrevProjects] = useState(projects);
+  if (projects !== prevProjects) {
+    setPrevProjects(projects);
+    setProjectsState(projects);
   }
 
   // Reading localStorage during render would desync from the server-rendered HTML
@@ -90,7 +103,10 @@ export function RubriqueBreakdownPanel({
     });
   }
 
-  const visibleProjects = selected.size === 0 ? projects : projects.filter((p) => selected.has(p.id));
+  // Reordering project groups only makes sense against the full, unfiltered
+  // list — same reasoning as disabling drag during search/sort elsewhere.
+  const canDragProjects = selected.size === 0;
+  const visibleProjects = canDragProjects ? projectsState : projectsState.filter((p) => selected.has(p.id));
 
   const groups = useMemo(
     () =>
@@ -138,6 +154,19 @@ export function RubriqueBreakdownPanel({
       if (!result.success) {
         toast.error(result.error);
         setDataState(previous);
+      }
+    });
+  }
+
+  function handleProjectReorder(orderedIds: string[]) {
+    const previous = projectsState;
+    const byId = new Map(projectsState.map((p) => [p.id, p]));
+    setProjectsState(orderedIds.map((id) => byId.get(id)!));
+    startTransition(async () => {
+      const result = await reorderProjectsDashboard(orderedIds);
+      if (!result.success) {
+        toast.error(result.error);
+        setProjectsState(previous);
       }
     });
   }
@@ -195,27 +224,68 @@ export function RubriqueBreakdownPanel({
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        {groups.map((g) => (
-          <details
-            key={g.projectId}
-            open={isOpen(g.projectId)}
-            onToggle={(e) => toggleOpen(g.projectId, (e.target as HTMLDetailsElement).open)}
-            className="group rounded-xl border bg-card"
-          >
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
-              {g.projectName}
-              <span className="text-xs font-normal text-muted-foreground">
-                {g.rows.length} catégorie{g.rows.length > 1 ? "s" : ""}
-              </span>
-            </summary>
-            <div className="border-t px-4">
-              <DivergingBarList data={g.rows} onReorder={(ids) => handleReorder(g.projectId, ids)} />
-            </div>
-          </details>
-        ))}
-      </div>
+      {!canDragProjects && (
+        <p className="text-xs text-muted-foreground">
+          Le glisser-déposer des projets est désactivé pendant un filtre — revenez à &quot;Tous les projets&quot; pour réorganiser.
+        </p>
+      )}
+
+      <SortableGroup ids={groups.map((g) => g.projectId)} onReorder={handleProjectReorder}>
+        <div className="flex flex-col gap-3">
+          {groups.map((g) => (
+            <RubriqueGroup
+              key={g.projectId}
+              g={g}
+              isOpen={isOpen(g.projectId)}
+              onToggle={(open) => toggleOpen(g.projectId, open)}
+              canDrag={canDragProjects}
+              onLineReorder={handleReorder}
+            />
+          ))}
+        </div>
+      </SortableGroup>
     </div>
+  );
+}
+
+function RubriqueGroup({
+  g,
+  isOpen,
+  onToggle,
+  canDrag,
+  onLineReorder,
+}: {
+  g: { projectId: string; projectName: string; rows: DivergingBarDatum[] };
+  isOpen: boolean;
+  onToggle: (open: boolean) => void;
+  canDrag: boolean;
+  onLineReorder: (projectId: string, orderedIds: string[]) => void;
+}) {
+  const { setNodeRef, style, dragHandleProps } = useSortableItem(g.projectId);
+
+  return (
+    <details
+      ref={setNodeRef}
+      style={style}
+      open={isOpen}
+      onToggle={(e) => onToggle((e.target as HTMLDetailsElement).open)}
+      className="group rounded-xl border bg-card"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+        {canDrag && (
+          <span onClick={(e) => e.preventDefault()}>
+            <DragHandle dragHandleProps={dragHandleProps} />
+          </span>
+        )}
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+        {g.projectName}
+        <span className="text-xs font-normal text-muted-foreground">
+          {g.rows.length} catégorie{g.rows.length > 1 ? "s" : ""}
+        </span>
+      </summary>
+      <div className="border-t px-4">
+        <DivergingBarList data={g.rows} onReorder={(ids) => onLineReorder(g.projectId, ids)} />
+      </div>
+    </details>
   );
 }
