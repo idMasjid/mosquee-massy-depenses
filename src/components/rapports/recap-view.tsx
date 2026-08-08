@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,12 @@ import { ConsumptionBar, DivergingBar, BarTooltip } from "@/components/budget/co
 import { consumptionPct } from "@/lib/consumption";
 import { formatEUR } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { SortableGroup, useSortableItem, DragHandle } from "@/components/ui/sortable";
+import { reorderProjectsRapports, reorderBudgetLinesRapports } from "@/lib/actions/project-actions";
 
 export type RecapRow = {
   id: string;
+  projectId: string;
   projectName: string;
   rubrique: string;
   productTitle: string | null;
@@ -84,21 +88,33 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
   const [filter, setFilter] = useState<FilterMode>("all");
   const [sort, setSort] = useState<{ key: SortKey | null; dir: "asc" | "desc" }>({ key: null, dir: "desc" });
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
+  const [, startTransition] = useTransition();
 
-  // First-appearance order in `rows` follows getBudgetOverview()'s
-  // project-then-budget-line ordering (the custom drag-and-drop order set on
-  // the Projects page), so no alphabetical re-sort here.
+  // Local, optimistically-reorderable mirror of `rows`. Manual drag-and-drop
+  // only makes sense against the unfiltered/unsorted "natural" order, so this
+  // is what group/line reordering below actually mutates.
+  const [rowsState, setRowsState] = useState(rows);
+  const [prevRows, setPrevRows] = useState(rows);
+  if (rows !== prevRows) {
+    setPrevRows(rows);
+    setRowsState(rows);
+  }
+
+  const canDrag = !search.trim() && filter === "all" && !sort.key;
+
+  // First-appearance order in `rowsState` follows the page's rapportsOrder
+  // query (independent of the Projets page's own order), so no re-sort here.
   const projectOrder = useMemo(() => {
     const seen = new Set<string>();
-    const names: string[] = [];
-    for (const r of rows) {
-      if (!seen.has(r.projectName)) {
-        seen.add(r.projectName);
-        names.push(r.projectName);
+    const list: { id: string; name: string }[] = [];
+    for (const r of rowsState) {
+      if (!seen.has(r.projectId)) {
+        seen.add(r.projectId);
+        list.push({ id: r.projectId, name: r.projectName });
       }
     }
-    return names;
-  }, [rows]);
+    return list;
+  }, [rowsState]);
 
   const printSnapshot = useRef<{ search: string; filter: FilterMode; openSet: Set<string> } | null>(null);
 
@@ -107,7 +123,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
       printSnapshot.current = { search, filter, openSet: new Set(openSet) };
       setSearch("");
       setFilter("all");
-      setOpenSet(new Set(projectOrder));
+      setOpenSet(new Set(projectOrder.map((p) => p.id)));
     }
     function afterPrint() {
       if (!printSnapshot.current) return;
@@ -125,17 +141,17 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
   }, [search, filter, openSet, projectOrder]);
 
   const totals = useMemo(() => {
-    const budgetCents = rows.reduce((s, r) => s + r.budgetCents, 0);
-    const realiseCents = rows.reduce((s, r) => s + r.realiseCents, 0);
-    const engageCents = rows.reduce((s, r) => s + r.engageCents, 0);
+    const budgetCents = rowsState.reduce((s, r) => s + r.budgetCents, 0);
+    const realiseCents = rowsState.reduce((s, r) => s + r.realiseCents, 0);
+    const engageCents = rowsState.reduce((s, r) => s + r.engageCents, 0);
     const restantCents = budgetCents - realiseCents - engageCents;
     const pctUsed = budgetCents ? Math.round(((realiseCents + engageCents) / budgetCents) * 100) : 0;
     return { budgetCents, realiseCents, engageCents, restantCents, pctUsed };
-  }, [rows]);
+  }, [rowsState]);
 
   const overruns = useMemo(
-    () => [...rows.filter((r) => r.restantCents < 0)].sort((a, b) => a.restantCents - b.restantCents),
-    [rows],
+    () => [...rowsState.filter((r) => r.restantCents < 0)].sort((a, b) => a.restantCents - b.restantCents),
+    [rowsState],
   );
 
   const matchesFilter = (r: RecapRow) => {
@@ -149,14 +165,14 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
 
   const groups = useMemo(() => {
     let list = projectOrder
-      .map((projectName) => {
-        const allRows = rows.filter((r) => r.projectName === projectName);
+      .map(({ id: projectId, name: projectName }) => {
+        const allRows = rowsState.filter((r) => r.projectId === projectId);
         const visibleRows = allRows.filter((r) => matchesFilter(r) && matchesSearch(r));
         const budgetCents = allRows.reduce((s, r) => s + r.budgetCents, 0);
         const realiseCents = allRows.reduce((s, r) => s + r.realiseCents, 0);
         const engageCents = allRows.reduce((s, r) => s + r.engageCents, 0);
         const restantCents = budgetCents - realiseCents - engageCents;
-        return { projectName, allRows, visibleRows, budgetCents, realiseCents, engageCents, restantCents };
+        return { projectId, projectName, allRows, visibleRows, budgetCents, realiseCents, engageCents, restantCents };
       })
       .filter((g) => g.visibleRows.length > 0);
 
@@ -172,22 +188,84 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
 
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectOrder, rows, filter, term, sort]);
+  }, [projectOrder, rowsState, filter, term, sort]);
 
   function handleSort(key: SortKey) {
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
   }
 
-  function toggleGroup(name: string, open: boolean) {
+  function toggleGroup(projectId: string, open: boolean) {
     setOpenSet((prev) => {
       const next = new Set(prev);
-      if (open) next.add(name);
-      else next.delete(name);
+      if (open) next.add(projectId);
+      else next.delete(projectId);
       return next;
     });
   }
 
-  const allOpen = groups.length > 0 && groups.every((g) => openSet.has(g.projectName) || !!term);
+  function handleGroupReorder(orderedProjectIds: string[]) {
+    const previous = rowsState;
+    const byProject = new Map<string, RecapRow[]>();
+    for (const r of rowsState) {
+      const list = byProject.get(r.projectId) ?? [];
+      list.push(r);
+      byProject.set(r.projectId, list);
+    }
+    const next = orderedProjectIds.flatMap((id) => byProject.get(id) ?? []);
+    setRowsState(next);
+    startTransition(async () => {
+      const result = await reorderProjectsRapports(orderedProjectIds);
+      if (!result.success) {
+        toast.error(result.error);
+        setRowsState(previous);
+      }
+    });
+  }
+
+  function handleLineReorder(projectId: string, orderedLineIds: string[]) {
+    const previous = rowsState;
+    const linesById = new Map(rowsState.filter((r) => r.projectId === projectId).map((r) => [r.id, r]));
+    const reorderedLines = orderedLineIds.map((id) => linesById.get(id)!);
+    const next: RecapRow[] = [];
+    let inserted = false;
+    for (const r of rowsState) {
+      if (r.projectId === projectId) {
+        if (!inserted) {
+          next.push(...reorderedLines);
+          inserted = true;
+        }
+      } else {
+        next.push(r);
+      }
+    }
+    setRowsState(next);
+    startTransition(async () => {
+      const result = await reorderBudgetLinesRapports(projectId, orderedLineIds);
+      if (!result.success) {
+        toast.error(result.error);
+        setRowsState(previous);
+      }
+    });
+  }
+
+  const allOpen = groups.length > 0 && groups.every((g) => openSet.has(g.projectId) || !!term);
+
+  const groupList = (
+    <div className="flex flex-col gap-3">
+      {groups.map((g) => (
+        <RecapGroup
+          key={g.projectId}
+          g={g}
+          isOpen={openSet.has(g.projectId) || !!term}
+          onToggle={(open) => toggleGroup(g.projectId, open)}
+          sort={sort}
+          onSort={handleSort}
+          canDrag={canDrag}
+          onLineReorder={handleLineReorder}
+        />
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -267,7 +345,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setOpenSet(allOpen ? new Set() : new Set(groups.map((g) => g.projectName)))}
+            onClick={() => setOpenSet(allOpen ? new Set() : new Set(groups.map((g) => g.projectId)))}
           >
             {allOpen ? "Tout replier" : "Tout déplier"}
           </Button>
@@ -277,7 +355,14 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
           </Button>
         </div>
 
-        <div className="hidden grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] gap-3 px-4 md:grid">
+        {!canDrag && (
+          <p className="text-xs text-muted-foreground">
+            Le glisser-déposer est désactivé pendant une recherche, un filtre ou un tri par colonne — revenez à &quot;Tout&quot; sans tri pour réorganiser.
+          </p>
+        )}
+
+        <div className="hidden grid-cols-[1.5rem_1fr_7rem_7rem_7rem_11rem_8rem] gap-3 px-4 md:grid">
+          <span />
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Projet</span>
           <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} />
           <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={handleSort} />
@@ -290,250 +375,274 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
         <p className="text-sm text-muted-foreground">Aucune ligne ne correspond à la recherche.</p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {groups.map((g) => {
-          const good = g.restantCents >= 0;
-          const pct = consumptionPct(g.budgetCents, g.realiseCents + g.engageCents, g.restantCents);
-          const isOpen = openSet.has(g.projectName) || !!term;
-          const partial = g.visibleRows.length !== g.allRows.length;
-
-          return (
-            <details
-              key={g.projectName}
-              open={isOpen}
-              onToggle={(e) => toggleGroup(g.projectName, (e.target as HTMLDetailsElement).open)}
-              className="group rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
-            >
-              <summary className="list-none cursor-pointer p-4 [&::-webkit-details-marker]:hidden print:cursor-default print:break-inside-avoid print:break-after-avoid">
-                {/* Desktop: single-row grid */}
-                <div className="hidden grid-cols-[1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 md:grid print:grid">
-                  <span className="flex items-center gap-2 font-semibold">
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 print:hidden" />
-                    {g.projectName}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
-                    </span>
-                  </span>
-                  <span className="text-right text-sm tabular-nums">{formatEUR(g.budgetCents)}</span>
-                  <span className="text-right text-sm tabular-nums">{formatEUR(g.realiseCents)}</span>
-                  <span className="text-right text-sm tabular-nums">{formatEUR(g.engageCents)}</span>
-                  <span className="flex flex-col items-end gap-1.5">
-                    <span className={cn("text-right text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
-                      {formatEUR(g.restantCents)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className={cn("text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
-                        {pct}%
-                      </span>
-                      <DivergingBar
-                        pct={pct}
-                        tooltip={
-                          <BarTooltip
-                            title={g.projectName}
-                            budgetCents={g.budgetCents}
-                            realiseCents={g.realiseCents}
-                            engageCents={g.engageCents}
-                            restantCents={g.restantCents}
-                          />
-                        }
-                        className="h-5 w-20"
-                      />
-                    </span>
-                  </span>
-                  <StatusPill good={good} className="justify-self-end" />
-                </div>
-
-                {/* Mobile: stacked card */}
-                <div className="flex flex-col gap-3 md:hidden print:hidden">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="flex items-center font-semibold">
-                      <ChevronRight className="mr-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
-                      {g.projectName}
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
-                      </span>
-                    </span>
-                    <StatusPill good={good} className="shrink-0" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Budgétisé</p>
-                      <p className="tabular-nums">{formatEUR(g.budgetCents)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Réalisé</p>
-                      <p className="tabular-nums">{formatEUR(g.realiseCents)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Engagé</p>
-                      <p className="tabular-nums">{formatEUR(g.engageCents)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("shrink-0 text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
-                      {pct}%
-                    </span>
-                    <DivergingBar
-                      pct={pct}
-                      tooltip={
-                        <BarTooltip
-                          title={g.projectName}
-                          budgetCents={g.budgetCents}
-                          realiseCents={g.realiseCents}
-                          engageCents={g.engageCents}
-                          restantCents={g.restantCents}
-                        />
-                      }
-                      className="h-5 flex-1"
-                    />
-                    <span className={cn("shrink-0 text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
-                      {formatEUR(g.restantCents)}
-                    </span>
-                  </div>
-                </div>
-              </summary>
-
-              <div className="hidden overflow-x-auto border-t px-2 md:block print:block print:break-inside-auto">
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-40">Catégorie</TableHead>
-                      <TableHead>Produit</TableHead>
-                      <TableHead className="w-28 text-right">
-                        <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={handleSort} className="print:hidden" />
-                        <span className="hidden print:inline">Budgétisé</span>
-                      </TableHead>
-                      <TableHead className="w-28 text-right">
-                        <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={handleSort} className="print:hidden" />
-                        <span className="hidden print:inline">Réalisé</span>
-                      </TableHead>
-                      <TableHead className="w-28 text-right">
-                        <SortButton label="Engagé" sortKey="engage" current={sort} onSort={handleSort} className="print:hidden" />
-                        <span className="hidden print:inline">Engagé</span>
-                      </TableHead>
-                      <TableHead className="w-44 text-right">
-                        <SortButton label="Restant" sortKey="restant" current={sort} onSort={handleSort} className="print:hidden" />
-                        <span className="hidden print:inline">Restant</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {g.visibleRows.map((r) => {
-                      const rowGood = r.restantCents >= 0;
-                      const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
-                      return (
-                        <TableRow key={r.id} className="print:break-inside-avoid">
-                          <TableCell className="whitespace-normal break-words text-muted-foreground">{r.rubrique}</TableCell>
-                          <TableCell className="whitespace-normal break-words font-medium">{r.productTitle ?? "—"}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatEUR(r.budgetCents)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatEUR(r.realiseCents)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatEUR(r.engageCents)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <span
-                                className={cn(
-                                  "text-xs tabular-nums",
-                                  rowGood ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700",
-                                )}
-                              >
-                                {rowPct}%
-                              </span>
-                              <DivergingBar
-                                pct={rowPct}
-                                tooltip={
-                                  <BarTooltip
-                                    title={r.productTitle ?? r.rubrique}
-                                    budgetCents={r.budgetCents}
-                                    realiseCents={r.realiseCents}
-                                    engageCents={r.engageCents}
-                                    restantCents={r.restantCents}
-                                  />
-                                }
-                                className="h-5 w-16"
-                              />
-                              <span
-                                className={cn(
-                                  "min-w-16 text-right font-semibold tabular-nums",
-                                  rowGood ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700",
-                                )}
-                              >
-                                {formatEUR(r.restantCents)}
-                              </span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile: card list */}
-              <div className="flex flex-col gap-2 border-t p-3 md:hidden print:hidden">
-                {g.visibleRows.map((r) => {
-                  const rowGood = r.restantCents >= 0;
-                  const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
-                  return (
-                    <div key={r.id} className="rounded-lg border bg-background p-3 text-sm">
-                      <p className="font-medium">{r.productTitle ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{r.rubrique}</p>
-                      <div className="mt-2 grid grid-cols-3 gap-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Budgétisé</p>
-                          <p className="tabular-nums">{formatEUR(r.budgetCents)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Réalisé</p>
-                          <p className="tabular-nums">{formatEUR(r.realiseCents)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Engagé</p>
-                          <p className="tabular-nums">{formatEUR(r.engageCents)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "shrink-0 text-xs tabular-nums",
-                            rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
-                          )}
-                        >
-                          {rowPct}%
-                        </span>
-                        <DivergingBar
-                          pct={rowPct}
-                          tooltip={
-                            <BarTooltip
-                              title={r.productTitle ?? r.rubrique}
-                              budgetCents={r.budgetCents}
-                              realiseCents={r.realiseCents}
-                              engageCents={r.engageCents}
-                              restantCents={r.restantCents}
-                            />
-                          }
-                          className="h-5 flex-1"
-                        />
-                        <span
-                          className={cn(
-                            "shrink-0 text-sm font-semibold tabular-nums",
-                            rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
-                          )}
-                        >
-                          {formatEUR(r.restantCents)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </details>
-          );
-        })}
-      </div>
+      <SortableGroup ids={groups.map((g) => g.projectId)} onReorder={handleGroupReorder}>
+        {groupList}
+      </SortableGroup>
 
       <p className="text-xs text-muted-foreground">
-        {rows.length} ligne{rows.length > 1 ? "s" : ""} de dépenses · {projectOrder.length} projet{projectOrder.length > 1 ? "s" : ""}
+        {rowsState.length} ligne{rowsState.length > 1 ? "s" : ""} de dépenses · {projectOrder.length} projet{projectOrder.length > 1 ? "s" : ""}
       </p>
+    </div>
+  );
+}
+
+type Group = {
+  projectId: string;
+  projectName: string;
+  allRows: RecapRow[];
+  visibleRows: RecapRow[];
+  budgetCents: number;
+  realiseCents: number;
+  engageCents: number;
+  restantCents: number;
+};
+
+function RecapGroup({
+  g,
+  isOpen,
+  onToggle,
+  sort,
+  onSort,
+  canDrag,
+  onLineReorder,
+}: {
+  g: Group;
+  isOpen: boolean;
+  onToggle: (open: boolean) => void;
+  sort: { key: SortKey | null; dir: "asc" | "desc" };
+  onSort: (key: SortKey) => void;
+  canDrag: boolean;
+  onLineReorder: (projectId: string, orderedIds: string[]) => void;
+}) {
+  const { setNodeRef, style, dragHandleProps } = useSortableItem(g.projectId);
+  const good = g.restantCents >= 0;
+  const pct = consumptionPct(g.budgetCents, g.realiseCents + g.engageCents, g.restantCents);
+  const partial = g.visibleRows.length !== g.allRows.length;
+  const lineIds = g.visibleRows.map((r) => r.id);
+
+  const rowsSection = (
+    <>
+      <div className="hidden overflow-x-auto border-t px-2 md:block print:block print:break-inside-auto">
+        <Table className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              {canDrag && <TableHead className="w-6 print:hidden" />}
+              <TableHead className="w-40">Catégorie</TableHead>
+              <TableHead>Produit</TableHead>
+              <TableHead className="w-28 text-right">
+                <SortButton label="Budgétisé" sortKey="budget" current={sort} onSort={onSort} className="print:hidden" />
+                <span className="hidden print:inline">Budgétisé</span>
+              </TableHead>
+              <TableHead className="w-28 text-right">
+                <SortButton label="Réalisé" sortKey="realise" current={sort} onSort={onSort} className="print:hidden" />
+                <span className="hidden print:inline">Réalisé</span>
+              </TableHead>
+              <TableHead className="w-28 text-right">
+                <SortButton label="Engagé" sortKey="engage" current={sort} onSort={onSort} className="print:hidden" />
+                <span className="hidden print:inline">Engagé</span>
+              </TableHead>
+              <TableHead className="w-44 text-right">
+                <SortButton label="Restant" sortKey="restant" current={sort} onSort={onSort} className="print:hidden" />
+                <span className="hidden print:inline">Restant</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {g.visibleRows.map((r) => (
+              <RecapLineRow key={r.id} r={r} canDrag={canDrag} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile: card list */}
+      <div className="flex flex-col gap-2 border-t p-3 md:hidden print:hidden">
+        {g.visibleRows.map((r) => (
+          <RecapLineCard key={r.id} r={r} canDrag={canDrag} />
+        ))}
+      </div>
+    </>
+  );
+
+  return (
+    <details
+      ref={setNodeRef}
+      style={style}
+      open={isOpen}
+      onToggle={(e) => onToggle((e.target as HTMLDetailsElement).open)}
+      className="group rounded-xl border bg-card print:break-inside-auto print:border-neutral-300 print:bg-white"
+    >
+      <summary className="list-none cursor-pointer p-4 [&::-webkit-details-marker]:hidden print:cursor-default print:break-inside-avoid print:break-after-avoid">
+        {/* Desktop: single-row grid */}
+        <div className="hidden grid-cols-[1.5rem_1fr_7rem_7rem_7rem_11rem_8rem] items-center gap-3 md:grid print:grid">
+          <span onClick={(e) => e.preventDefault()}>
+            {canDrag && <DragHandle dragHandleProps={dragHandleProps} className="print:hidden" />}
+          </span>
+          <span className="flex items-center gap-2 font-semibold">
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 print:hidden" />
+            {g.projectName}
+            <span className="text-xs font-normal text-muted-foreground">
+              {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
+            </span>
+          </span>
+          <span className="text-right text-sm tabular-nums">{formatEUR(g.budgetCents)}</span>
+          <span className="text-right text-sm tabular-nums">{formatEUR(g.realiseCents)}</span>
+          <span className="text-right text-sm tabular-nums">{formatEUR(g.engageCents)}</span>
+          <span className="flex flex-col items-end gap-1.5">
+            <span className={cn("text-right text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+              {formatEUR(g.restantCents)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className={cn("text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+                {pct}%
+              </span>
+              <DivergingBar
+                pct={pct}
+                tooltip={
+                  <BarTooltip title={g.projectName} budgetCents={g.budgetCents} realiseCents={g.realiseCents} engageCents={g.engageCents} restantCents={g.restantCents} />
+                }
+                className="h-5 w-20"
+              />
+            </span>
+          </span>
+          <StatusPill good={good} className="justify-self-end" />
+        </div>
+
+        {/* Mobile: stacked card */}
+        <div className="flex flex-col gap-3 md:hidden print:hidden">
+          <div className="flex items-start justify-between gap-2">
+            <span className="flex items-center font-semibold">
+              {canDrag && (
+                <span onClick={(e) => e.preventDefault()} className="mr-1">
+                  <DragHandle dragHandleProps={dragHandleProps} />
+                </span>
+              )}
+              <ChevronRight className="mr-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+              {g.projectName}
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {partial ? `${g.visibleRows.length}/${g.allRows.length} lignes` : `${g.allRows.length} ligne${g.allRows.length > 1 ? "s" : ""}`}
+              </span>
+            </span>
+            <StatusPill good={good} className="shrink-0" />
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Budgétisé</p>
+              <p className="tabular-nums">{formatEUR(g.budgetCents)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Réalisé</p>
+              <p className="tabular-nums">{formatEUR(g.realiseCents)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Engagé</p>
+              <p className="tabular-nums">{formatEUR(g.engageCents)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={cn("shrink-0 text-xs tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+              {pct}%
+            </span>
+            <DivergingBar
+              pct={pct}
+              tooltip={
+                <BarTooltip title={g.projectName} budgetCents={g.budgetCents} realiseCents={g.realiseCents} engageCents={g.engageCents} restantCents={g.restantCents} />
+              }
+              className="h-5 flex-1"
+            />
+            <span className={cn("shrink-0 text-sm font-semibold tabular-nums", good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+              {formatEUR(g.restantCents)}
+            </span>
+          </div>
+        </div>
+      </summary>
+
+      <SortableGroup ids={lineIds} onReorder={(ids) => onLineReorder(g.projectId, ids)}>
+        {rowsSection}
+      </SortableGroup>
+    </details>
+  );
+}
+
+function RecapLineRow({ r, canDrag }: { r: RecapRow; canDrag: boolean }) {
+  const { setNodeRef, style, dragHandleProps } = useSortableItem(r.id);
+  const rowGood = r.restantCents >= 0;
+  const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
+  return (
+    <TableRow ref={canDrag ? setNodeRef : undefined} style={canDrag ? style : undefined} className="print:break-inside-avoid">
+      {canDrag && (
+        <TableCell className="print:hidden">
+          <DragHandle dragHandleProps={dragHandleProps} />
+        </TableCell>
+      )}
+      <TableCell className="whitespace-normal break-words text-muted-foreground">{r.rubrique}</TableCell>
+      <TableCell className="whitespace-normal break-words font-medium">{r.productTitle ?? "—"}</TableCell>
+      <TableCell className="text-right tabular-nums">{formatEUR(r.budgetCents)}</TableCell>
+      <TableCell className="text-right tabular-nums">{formatEUR(r.realiseCents)}</TableCell>
+      <TableCell className="text-right tabular-nums">{formatEUR(r.engageCents)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <span className={cn("text-xs tabular-nums", rowGood ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+            {rowPct}%
+          </span>
+          <DivergingBar
+            pct={rowPct}
+            tooltip={
+              <BarTooltip title={r.productTitle ?? r.rubrique} budgetCents={r.budgetCents} realiseCents={r.realiseCents} engageCents={r.engageCents} restantCents={r.restantCents} />
+            }
+            className="h-5 w-16"
+          />
+          <span className={cn("min-w-16 text-right font-semibold tabular-nums", rowGood ? "text-emerald-600 dark:text-emerald-400 print:text-emerald-700" : "text-destructive print:text-red-700")}>
+            {formatEUR(r.restantCents)}
+          </span>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function RecapLineCard({ r, canDrag }: { r: RecapRow; canDrag: boolean }) {
+  const { setNodeRef, style, dragHandleProps } = useSortableItem(r.id);
+  const rowGood = r.restantCents >= 0;
+  const rowPct = consumptionPct(r.budgetCents, r.realiseCents + r.engageCents, r.restantCents);
+  return (
+    <div ref={canDrag ? setNodeRef : undefined} style={canDrag ? style : undefined} className="rounded-lg border bg-background p-3 text-sm">
+      <div className="flex items-start gap-2">
+        {canDrag && <DragHandle dragHandleProps={dragHandleProps} className="mt-0.5" />}
+        <div className="flex-1">
+          <p className="font-medium">{r.productTitle ?? "—"}</p>
+          <p className="text-xs text-muted-foreground">{r.rubrique}</p>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <div>
+          <p className="text-xs text-muted-foreground">Budgétisé</p>
+          <p className="tabular-nums">{formatEUR(r.budgetCents)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Réalisé</p>
+          <p className="tabular-nums">{formatEUR(r.realiseCents)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Engagé</p>
+          <p className="tabular-nums">{formatEUR(r.engageCents)}</p>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className={cn("shrink-0 text-xs tabular-nums", rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+          {rowPct}%
+        </span>
+        <DivergingBar
+          pct={rowPct}
+          tooltip={
+            <BarTooltip title={r.productTitle ?? r.rubrique} budgetCents={r.budgetCents} realiseCents={r.realiseCents} engageCents={r.engageCents} restantCents={r.restantCents} />
+          }
+          className="h-5 flex-1"
+        />
+        <span className={cn("shrink-0 text-sm font-semibold tabular-nums", rowGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+          {formatEUR(r.restantCents)}
+        </span>
+      </div>
     </div>
   );
 }

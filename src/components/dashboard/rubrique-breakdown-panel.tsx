@@ -22,7 +22,7 @@ const PROJECT_FILTER_STORAGE_KEY = "dashboard-categorie-breakdown-project-filter
 function toRubriqueList(rows: ProjectRubriqueBudgetDatum[]): DivergingBarDatum[] {
   const totals = new Map<string, DivergingBarDatum>();
   for (const r of rows) {
-    const entry = totals.get(r.rubrique) ?? { label: r.rubrique, budget: 0, realise: 0, engage: 0, restant: 0 };
+    const entry = totals.get(r.rubrique) ?? { id: r.rubrique, label: r.rubrique, budget: 0, realise: 0, engage: 0, restant: 0 };
     entry.budget += r.budget;
     entry.realise += r.realise;
     entry.engage += r.engage;

@@ -1,7 +1,8 @@
+import { prisma } from "@/lib/prisma";
 import { getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
 import { formatEUR, fromCents } from "@/lib/money";
 import { StatTile } from "@/components/dashboard/stat-tile";
-import { DivergingBarList } from "@/components/dashboard/diverging-bar-list";
+import { SortableProjectBudgetPanel } from "@/components/dashboard/sortable-project-budget-panel";
 import { RubriqueBreakdownPanel } from "@/components/dashboard/rubrique-breakdown-panel";
 import { SpendTimeseriesChart, type SpendPoint } from "@/components/dashboard/spend-timeseries-chart";
 
@@ -35,11 +36,15 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
 }
 
 export default async function DashboardPage() {
-  const [overview, monthly, forecast] = await Promise.all([
+  const [overview, monthly, forecast, dashboardProjects] = await Promise.all([
     getBudgetOverview(),
     getMonthlySpend(),
     getForecastSummary(),
+    prisma.project.findMany({ orderBy: [{ dashboardOrder: "asc" }, { name: "asc" }], select: { id: true } }),
   ]);
+  // Independent from the Projets page's own order — reordering "Budget par
+  // projet" below only moves things on this dashboard.
+  const dashboardRank = new Map(dashboardProjects.map((p, i) => [p.id, i]));
 
   const byProject = new Map<
     string,
@@ -80,10 +85,10 @@ export default async function DashboardPage() {
     rubriqueBudgets.set(rubriqueKey, rubriqueEntry);
   }
 
-  // byProject preserves insertion order, which follows getBudgetOverview()'s
-  // project-then-budget-line ordering — i.e. the custom drag-and-drop order
-  // set on the Projects page, not alphabetical.
-  const projects = [...byProject.entries()].map(([id, p]) => ({ id, name: p.projectName }));
+  const byProjectSorted = [...byProject.entries()].sort(
+    (a, b) => (dashboardRank.get(a[0]) ?? 0) - (dashboardRank.get(b[0]) ?? 0),
+  );
+  const projects = byProjectSorted.map(([id, p]) => ({ id, name: p.projectName }));
 
   const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents);
 
@@ -118,7 +123,9 @@ export default async function DashboardPage() {
           <p className="mb-2 text-xs text-muted-foreground">
             % et montant affichés = restant par rapport au budget alloué (survoler la barre pour le détail)
           </p>
-          <DivergingBarList data={[...byProject.values()].map((p) => ({ label: p.projectName, ...p }))} />
+          <SortableProjectBudgetPanel
+            data={byProjectSorted.map(([id, p]) => ({ id, label: p.projectName, ...p }))}
+          />
         </div>
         <div className="rounded-xl border bg-card p-4">
           <h2 className="text-sm font-semibold text-muted-foreground">Budget par catégorie</h2>

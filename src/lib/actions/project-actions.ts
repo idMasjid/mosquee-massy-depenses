@@ -14,12 +14,16 @@ export async function createProject(raw: unknown): Promise<ActionResult> {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   try {
-    const last = await prisma.project.findFirst({ orderBy: { order: "desc" } });
+    const last = await prisma.project.aggregate({
+      _max: { order: true, dashboardOrder: true, rapportsOrder: true },
+    });
     await prisma.project.create({
       data: {
         name: parsed.data.name,
         description: parsed.data.description || null,
-        order: (last?.order ?? 0) + 10,
+        order: (last._max.order ?? 0) + 10,
+        dashboardOrder: (last._max.dashboardOrder ?? 0) + 10,
+        rapportsOrder: (last._max.rapportsOrder ?? 0) + 10,
       },
     });
   } catch {
@@ -29,15 +33,38 @@ export async function createProject(raw: unknown): Promise<ActionResult> {
   return { success: true };
 }
 
-// Persists a manual drag-and-drop order for the project list. Shared/global
-// (not per-user) since it's a display order for the whole list, not a
-// personal preference — any active session may reorder.
+// Each page (Projets / Dashboard / Récapitulatif) has its own independent
+// manual order — reordering on one page intentionally doesn't move things on
+// another. Shared/global across users (not per-user), any active session may
+// reorder.
 export async function reorderProjects(orderedIds: string[]): Promise<ActionResult> {
   await requireSession();
   await prisma.$transaction(
     orderedIds.map((id, index) => prisma.project.update({ where: { id }, data: { order: (index + 1) * 10 } })),
   );
   revalidatePath("/projects");
+  return { success: true };
+}
+
+export async function reorderProjectsDashboard(orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.project.update({ where: { id }, data: { dashboardOrder: (index + 1) * 10 } }),
+    ),
+  );
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function reorderProjectsRapports(orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.project.update({ where: { id }, data: { rapportsOrder: (index + 1) * 10 } }),
+    ),
+  );
+  revalidatePath("/rapports");
   return { success: true };
 }
 
@@ -60,9 +87,9 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
   }
 
   try {
-    const last = await prisma.budgetLine.findFirst({
+    const last = await prisma.budgetLine.aggregate({
       where: { projectId: input.projectId },
-      orderBy: { order: "desc" },
+      _max: { order: true, rapportsOrder: true },
     });
     await prisma.budgetLine.create({
       data: {
@@ -71,7 +98,8 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
         productTitle: input.productTitle || null,
         budgetedAmountHTCents: toCents(input.budgetedAmountHT),
         notes: input.notes || null,
-        order: (last?.order ?? 0) + 10,
+        order: (last._max.order ?? 0) + 10,
+        rapportsOrder: (last._max.rapportsOrder ?? 0) + 10,
       },
     });
   } catch {
@@ -81,8 +109,8 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
   return { success: true };
 }
 
-// Persists a manual drag-and-drop order for the budget lines of a single
-// project. Shared/global (not per-user), any active session may reorder.
+// order = Projets page order; rapportsOrder = Récapitulatif page order
+// (independent of each other). Shared/global (not per-user).
 export async function reorderBudgetLines(projectId: string, orderedIds: string[]): Promise<ActionResult> {
   await requireSession();
   await prisma.$transaction(
@@ -91,6 +119,17 @@ export async function reorderBudgetLines(projectId: string, orderedIds: string[]
     ),
   );
   revalidatePath("/projects");
+  return { success: true };
+}
+
+export async function reorderBudgetLinesRapports(projectId: string, orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.budgetLine.update({ where: { id, projectId }, data: { rapportsOrder: (index + 1) * 10 } }),
+    ),
+  );
+  revalidatePath("/rapports");
   return { success: true };
 }
 

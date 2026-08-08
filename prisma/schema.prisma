@@ -33,13 +33,17 @@ model User {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  // Independent manual display orders per page (Projets / Dashboard / Récapitulatif) —
+  // deliberately not shared, so reordering on one page doesn't move things on another.
+  order          Int      @default(0)
+  dashboardOrder Int      @default(0)
+  rapportsOrder  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   budgetLines      BudgetLine[]
   expenses         Expense[]
@@ -70,7 +74,9 @@ model BudgetLine {
   budgetedAmountHTCents Int      @default(0)
   notes                 String?
   isActive              Boolean  @default(true)
+  // order = Projets page; rapportsOrder = Récapitulatif page (independent).
   order                 Int      @default(0)
+  rapportsOrder         Int      @default(0)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
