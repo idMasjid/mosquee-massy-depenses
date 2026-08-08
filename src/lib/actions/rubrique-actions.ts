@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/rbac";
+import { requireRole, requireSession } from "@/lib/rbac";
 import { allowedRubriqueFormSchema } from "@/lib/validations/rubrique";
 import type { ActionResult } from "@/lib/actions/expense-actions";
 
@@ -13,10 +13,27 @@ export async function createAllowedRubrique(raw: unknown): Promise<ActionResult>
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   try {
-    await prisma.allowedRubrique.create({ data: parsed.data });
+    const last = await prisma.allowedRubrique.findFirst({
+      where: { projectId: parsed.data.projectId },
+      orderBy: { order: "desc" },
+    });
+    await prisma.allowedRubrique.create({ data: { ...parsed.data, order: (last?.order ?? 0) + 10 } });
   } catch {
     return { success: false, error: "Cette catégorie est déjà autorisée pour ce projet." };
   }
+  revalidatePath("/admin/rubriques");
+  return { success: true };
+}
+
+// Persists a manual drag-and-drop order for the rubriques of a single
+// project. Shared/global (not per-user), any active session may reorder.
+export async function reorderRubriques(projectId: string, orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.allowedRubrique.update({ where: { id, projectId }, data: { order: (index + 1) * 10 } }),
+    ),
+  );
   revalidatePath("/admin/rubriques");
   return { success: true };
 }

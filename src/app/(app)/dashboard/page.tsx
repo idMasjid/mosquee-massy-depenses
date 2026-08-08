@@ -80,9 +80,10 @@ export default async function DashboardPage() {
     rubriqueBudgets.set(rubriqueKey, rubriqueEntry);
   }
 
-  const projects = [...byProject.entries()]
-    .map(([id, p]) => ({ id, name: p.projectName }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // byProject preserves insertion order, which follows getBudgetOverview()'s
+  // project-then-budget-line ordering — i.e. the custom drag-and-drop order
+  // set on the Projects page, not alphabetical.
+  const projects = [...byProject.entries()].map(([id, p]) => ({ id, name: p.projectName }));
 
   const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents);
 

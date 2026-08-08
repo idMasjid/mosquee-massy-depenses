@@ -1,10 +1,11 @@
-export const ROLES = ["ADMIN", "IT", "BUREAU"] as const;
+export const ROLES = ["ADMIN", "IT", "BUREAU", "LECTEUR"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Admin",
-  IT: "Équipe IT",
+  IT: "Gestionnaire",
   BUREAU: "Bureau",
+  LECTEUR: "Lecteur",
 };
 
 export const EXPENSE_STATUSES = [

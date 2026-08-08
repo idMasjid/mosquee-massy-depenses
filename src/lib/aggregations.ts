@@ -17,7 +17,10 @@ export type BudgetLineTotal = {
 
 export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
   const [budgetLines, expenses] = await Promise.all([
-    prisma.budgetLine.findMany({ include: { project: true } }),
+    prisma.budgetLine.findMany({
+      include: { project: true },
+      orderBy: [{ project: { order: "asc" } }, { order: "asc" }, { rubrique: "asc" }],
+    }),
     prisma.expense.findMany({
       where: { budgetLineId: { not: null } },
       select: { budgetLineId: true, status: true, totalTTCCents: true },

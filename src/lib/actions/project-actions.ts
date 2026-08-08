@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/rbac";
+import { requireRole, requireSession } from "@/lib/rbac";
 import { toCents } from "@/lib/money";
 import { projectFormSchema, budgetLineFormSchema, budgetLineUpdateSchema } from "@/lib/validations/project";
 import type { ActionResult } from "@/lib/actions/expense-actions";
@@ -14,12 +14,29 @@ export async function createProject(raw: unknown): Promise<ActionResult> {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   try {
+    const last = await prisma.project.findFirst({ orderBy: { order: "desc" } });
     await prisma.project.create({
-      data: { name: parsed.data.name, description: parsed.data.description || null },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        order: (last?.order ?? 0) + 10,
+      },
     });
   } catch {
     return { success: false, error: "Un projet avec ce nom existe déjà." };
   }
+  revalidatePath("/projects");
+  return { success: true };
+}
+
+// Persists a manual drag-and-drop order for the project list. Shared/global
+// (not per-user) since it's a display order for the whole list, not a
+// personal preference — any active session may reorder.
+export async function reorderProjects(orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) => prisma.project.update({ where: { id }, data: { order: (index + 1) * 10 } })),
+  );
   revalidatePath("/projects");
   return { success: true };
 }
@@ -43,6 +60,10 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
   }
 
   try {
+    const last = await prisma.budgetLine.findFirst({
+      where: { projectId: input.projectId },
+      orderBy: { order: "desc" },
+    });
     await prisma.budgetLine.create({
       data: {
         projectId: input.projectId,
@@ -50,11 +71,25 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
         productTitle: input.productTitle || null,
         budgetedAmountHTCents: toCents(input.budgetedAmountHT),
         notes: input.notes || null,
+        order: (last?.order ?? 0) + 10,
       },
     });
   } catch {
     return { success: false, error: "Cette ligne budgétaire existe déjà pour ce projet." };
   }
+  revalidatePath("/projects");
+  return { success: true };
+}
+
+// Persists a manual drag-and-drop order for the budget lines of a single
+// project. Shared/global (not per-user), any active session may reorder.
+export async function reorderBudgetLines(projectId: string, orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.budgetLine.update({ where: { id, projectId }, data: { order: (index + 1) * 10 } }),
+    ),
+  );
   revalidatePath("/projects");
   return { success: true };
 }

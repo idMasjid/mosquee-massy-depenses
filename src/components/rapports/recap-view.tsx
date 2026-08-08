@@ -85,6 +85,9 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
   const [sort, setSort] = useState<{ key: SortKey | null; dir: "asc" | "desc" }>({ key: null, dir: "desc" });
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
 
+  // First-appearance order in `rows` follows getBudgetOverview()'s
+  // project-then-budget-line ordering (the custom drag-and-drop order set on
+  // the Projects page), so no alphabetical re-sort here.
   const projectOrder = useMemo(() => {
     const seen = new Set<string>();
     const names: string[] = [];
@@ -94,7 +97,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
         names.push(r.projectName);
       }
     }
-    return names.sort((a, b) => a.localeCompare(b));
+    return names;
   }, [rows]);
 
   const printSnapshot = useRef<{ search: string; filter: FilterMode; openSet: Set<string> } | null>(null);

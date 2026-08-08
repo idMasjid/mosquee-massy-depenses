@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/rbac";
+import { requireRole } from "@/lib/rbac";
 import { storage, ALLOWED_ATTACHMENT_TYPES, MAX_ATTACHMENT_SIZE_BYTES } from "@/lib/storage";
 import type { ActionResult } from "@/lib/actions/expense-actions";
 
 export async function uploadAttachment(formData: FormData): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await requireRole(["ADMIN", "IT", "BUREAU"]);
   const expenseId = formData.get("expenseId");
   const file = formData.get("file");
 
@@ -44,7 +44,7 @@ export async function uploadAttachment(formData: FormData): Promise<ActionResult
 }
 
 export async function deleteAttachment(attachmentId: string): Promise<ActionResult> {
-  const session = await requireSession();
+  const session = await requireRole(["ADMIN", "IT", "BUREAU"]);
   const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!attachment) return { success: false, error: "Pièce jointe introuvable." };
 

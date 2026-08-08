@@ -1,15 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/rbac";
 import { NewRubriqueDialog } from "@/components/admin/new-rubrique-dialog";
-import { EditRubriqueDialog } from "@/components/admin/edit-rubrique-dialog";
-import { DeleteRubriqueButton } from "@/components/admin/delete-rubrique-button";
+import { SortableRubriquesList } from "@/components/admin/sortable-rubriques-list";
 
 export default async function AdminRubriquesPage() {
   await requireRole(["ADMIN", "IT"]);
 
   const [projects, allowedRubriques, budgetLines] = await Promise.all([
-    prisma.project.findMany({ orderBy: { name: "asc" } }),
-    prisma.allowedRubrique.findMany({ orderBy: { rubrique: "asc" } }),
+    prisma.project.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] }),
+    prisma.allowedRubrique.findMany({ orderBy: [{ order: "asc" }, { rubrique: "asc" }] }),
     prisma.budgetLine.findMany({ select: { projectId: true, rubrique: true } }),
   ]);
 
@@ -48,29 +47,14 @@ export default async function AdminRubriquesPage() {
             <div className="border-b p-4">
               <h2 className="font-semibold">{project.name}</h2>
             </div>
-            {rubriques.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">Aucune catégorie autorisée pour ce projet.</p>
-            ) : (
-              <ul className="flex flex-col divide-y">
-                {rubriques.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
-                    <span>{r.rubrique}</span>
-                    <div className="flex items-center gap-1">
-                      <EditRubriqueDialog
-                        id={r.id}
-                        rubrique={r.rubrique}
-                        lineCount={lineCountByKey.get(`${project.id}::${r.rubrique}`) ?? 0}
-                      />
-                      <DeleteRubriqueButton
-                        id={r.id}
-                        rubrique={r.rubrique}
-                        lineCount={lineCountByKey.get(`${project.id}::${r.rubrique}`) ?? 0}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <SortableRubriquesList
+              projectId={project.id}
+              rubriques={rubriques.map((r) => ({
+                id: r.id,
+                rubrique: r.rubrique,
+                lineCount: lineCountByKey.get(`${project.id}::${r.rubrique}`) ?? 0,
+              }))}
+            />
           </div>
         );
       })}

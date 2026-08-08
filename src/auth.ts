@@ -76,7 +76,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const isLoggedIn = !!auth?.user?.isActive;
       const path = request.nextUrl.pathname;
       if (path.startsWith("/login") || path.startsWith("/auth")) return true;
-      if (path.startsWith("/admin")) return isLoggedIn && auth!.user.role === "ADMIN";
+      // Coarse gate: just require an active session here. Fine-grained role
+      // checks (e.g. /admin/users is ADMIN-only, /admin/rubriques allows IT
+      // too) live in each page/action via requireRole — keeping a second,
+      // less granular role check here previously blocked IT from reaching
+      // /admin/rubriques before its own requireRole(["ADMIN","IT"]) ran.
       return isLoggedIn;
     },
   },

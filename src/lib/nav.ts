@@ -9,10 +9,10 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: ["ADMIN", "IT", "BUREAU"] },
-  { href: "/expenses", label: "Dépenses", icon: Receipt, roles: ["ADMIN", "IT", "BUREAU"] },
-  { href: "/projects", label: "Projets & budgets", icon: FolderKanban, roles: ["ADMIN", "IT", "BUREAU"] },
-  { href: "/rapports", label: "Récapitulatif", icon: FileText, roles: ["ADMIN", "IT", "BUREAU"] },
+  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
+  { href: "/expenses", label: "Dépenses", icon: Receipt, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
+  { href: "/projects", label: "Projets & budgets", icon: FolderKanban, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
+  { href: "/rapports", label: "Récapitulatif", icon: FileText, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
   { href: "/admin/rubriques", label: "Catégories", icon: Tags, roles: ["ADMIN", "IT"] },
   { href: "/admin/users", label: "Utilisateurs", icon: Users, roles: ["ADMIN"] },
 ];
