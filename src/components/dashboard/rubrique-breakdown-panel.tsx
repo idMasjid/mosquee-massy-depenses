@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DivergingBarList, type DivergingBarDatum } from "@/components/dashboard/diverging-bar-list";
+import { reorderRubriquesDashboard } from "@/lib/actions/rubrique-actions";
 
 export type ProjectRubriqueBudgetDatum = {
+  id: string;
   projectId: string;
   projectName: string;
   rubrique: string;
+  dashboardOrder: number;
   budget: number;
   realise: number;
   engage: number;
@@ -20,16 +24,24 @@ export type ProjectRubriqueBudgetDatum = {
 const PROJECT_FILTER_STORAGE_KEY = "dashboard-categorie-breakdown-project-filter";
 
 function toRubriqueList(rows: ProjectRubriqueBudgetDatum[]): DivergingBarDatum[] {
-  const totals = new Map<string, DivergingBarDatum>();
+  const totals = new Map<string, DivergingBarDatum & { dashboardOrder: number }>();
   for (const r of rows) {
-    const entry = totals.get(r.rubrique) ?? { id: r.rubrique, label: r.rubrique, budget: 0, realise: 0, engage: 0, restant: 0 };
+    const entry = totals.get(r.id) ?? {
+      id: r.id,
+      label: r.rubrique,
+      dashboardOrder: r.dashboardOrder,
+      budget: 0,
+      realise: 0,
+      engage: 0,
+      restant: 0,
+    };
     entry.budget += r.budget;
     entry.realise += r.realise;
     entry.engage += r.engage;
     entry.restant += r.restant;
-    totals.set(r.rubrique, entry);
+    totals.set(r.id, entry);
   }
-  return [...totals.values()].sort((a, b) => a.restant - b.restant);
+  return [...totals.values()].sort((a, b) => a.dashboardOrder - b.dashboardOrder);
 }
 
 export function RubriqueBreakdownPanel({
@@ -42,6 +54,14 @@ export function RubriqueBreakdownPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
+  const [, startTransition] = useTransition();
+
+  const [dataState, setDataState] = useState(data);
+  const [prevData, setPrevData] = useState(data);
+  if (data !== prevData) {
+    setPrevData(data);
+    setDataState(data);
+  }
 
   // Reading localStorage during render would desync from the server-rendered HTML
   // (hydration mismatch), so the restore has to happen post-mount in an effect.
@@ -78,10 +98,10 @@ export function RubriqueBreakdownPanel({
         .map((p) => ({
           projectId: p.id,
           projectName: p.name,
-          rows: toRubriqueList(data.filter((d) => d.projectId === p.id)),
+          rows: toRubriqueList(dataState.filter((d) => d.projectId === p.id)),
         }))
         .filter((g) => g.rows.length > 0),
-    [visibleProjects, data],
+    [visibleProjects, dataState],
   );
 
   const isOpen = (projectId: string) => (selected.size > 0 ? true : openSet.has(projectId));
@@ -93,6 +113,32 @@ export function RubriqueBreakdownPanel({
       if (open) next.add(projectId);
       else next.delete(projectId);
       return next;
+    });
+  }
+
+  function handleReorder(projectId: string, orderedIds: string[]) {
+    const previous = dataState;
+    const byId = new Map(dataState.filter((d) => d.projectId === projectId).map((d) => [d.id, d]));
+    const reordered = orderedIds.map((id) => byId.get(id)!);
+    const next: ProjectRubriqueBudgetDatum[] = [];
+    let inserted = false;
+    for (const d of dataState) {
+      if (d.projectId === projectId) {
+        if (!inserted) {
+          next.push(...reordered);
+          inserted = true;
+        }
+      } else {
+        next.push(d);
+      }
+    }
+    setDataState(next);
+    startTransition(async () => {
+      const result = await reorderRubriquesDashboard(projectId, orderedIds);
+      if (!result.success) {
+        toast.error(result.error);
+        setDataState(previous);
+      }
     });
   }
 
@@ -165,7 +211,7 @@ export function RubriqueBreakdownPanel({
               </span>
             </summary>
             <div className="border-t px-4">
-              <DivergingBarList data={g.rows} />
+              <DivergingBarList data={g.rows} onReorder={(ids) => handleReorder(g.projectId, ids)} />
             </div>
           </details>
         ))}

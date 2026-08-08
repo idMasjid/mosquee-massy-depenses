@@ -36,15 +36,17 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
 }
 
 export default async function DashboardPage() {
-  const [overview, monthly, forecast, dashboardProjects] = await Promise.all([
+  const [overview, monthly, forecast, dashboardProjects, allowedRubriques] = await Promise.all([
     getBudgetOverview(),
     getMonthlySpend(),
     getForecastSummary(),
     prisma.project.findMany({ orderBy: [{ dashboardOrder: "asc" }, { name: "asc" }], select: { id: true } }),
+    prisma.allowedRubrique.findMany({ select: { id: true, projectId: true, rubrique: true, dashboardOrder: true } }),
   ]);
   // Independent from the Projets page's own order — reordering "Budget par
   // projet" below only moves things on this dashboard.
   const dashboardRank = new Map(dashboardProjects.map((p, i) => [p.id, i]));
+  const allowedRubriqueByKey = new Map(allowedRubriques.map((r) => [`${r.projectId}::${r.rubrique}`, r]));
 
   const byProject = new Map<
     string,
@@ -52,7 +54,17 @@ export default async function DashboardPage() {
   >();
   const rubriqueBudgets = new Map<
     string,
-    { projectId: string; projectName: string; rubrique: string; budget: number; realise: number; engage: number; restant: number }
+    {
+      id: string;
+      projectId: string;
+      projectName: string;
+      rubrique: string;
+      dashboardOrder: number;
+      budget: number;
+      realise: number;
+      engage: number;
+      restant: number;
+    }
   >();
   for (const line of overview) {
     const entry = byProject.get(line.projectId) ?? {
@@ -69,10 +81,13 @@ export default async function DashboardPage() {
     byProject.set(line.projectId, entry);
 
     const rubriqueKey = `${line.projectId}::${line.rubrique}`;
+    const allowed = allowedRubriqueByKey.get(rubriqueKey);
     const rubriqueEntry = rubriqueBudgets.get(rubriqueKey) ?? {
+      id: allowed?.id ?? rubriqueKey,
       projectId: line.projectId,
       projectName: line.projectName,
       rubrique: line.rubrique,
+      dashboardOrder: allowed?.dashboardOrder ?? 0,
       budget: 0,
       realise: 0,
       engage: 0,

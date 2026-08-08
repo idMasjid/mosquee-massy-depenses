@@ -13,11 +13,17 @@ export async function createAllowedRubrique(raw: unknown): Promise<ActionResult>
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   try {
-    const last = await prisma.allowedRubrique.findFirst({
+    const last = await prisma.allowedRubrique.aggregate({
       where: { projectId: parsed.data.projectId },
-      orderBy: { order: "desc" },
+      _max: { order: true, dashboardOrder: true },
     });
-    await prisma.allowedRubrique.create({ data: { ...parsed.data, order: (last?.order ?? 0) + 10 } });
+    await prisma.allowedRubrique.create({
+      data: {
+        ...parsed.data,
+        order: (last._max.order ?? 0) + 10,
+        dashboardOrder: (last._max.dashboardOrder ?? 0) + 10,
+      },
+    });
   } catch {
     return { success: false, error: "Cette catégorie est déjà autorisée pour ce projet." };
   }
@@ -25,8 +31,9 @@ export async function createAllowedRubrique(raw: unknown): Promise<ActionResult>
   return { success: true };
 }
 
-// Persists a manual drag-and-drop order for the rubriques of a single
-// project. Shared/global (not per-user), any active session may reorder.
+// order = Admin > Catégories page order; dashboardOrder = "Budget par
+// catégorie" panel order (independent of each other). Shared/global (not
+// per-user), any active session may reorder.
 export async function reorderRubriques(projectId: string, orderedIds: string[]): Promise<ActionResult> {
   await requireSession();
   await prisma.$transaction(
@@ -35,6 +42,17 @@ export async function reorderRubriques(projectId: string, orderedIds: string[]):
     ),
   );
   revalidatePath("/admin/rubriques");
+  return { success: true };
+}
+
+export async function reorderRubriquesDashboard(projectId: string, orderedIds: string[]): Promise<ActionResult> {
+  await requireSession();
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.allowedRubrique.update({ where: { id, projectId }, data: { dashboardOrder: (index + 1) * 10 } }),
+    ),
+  );
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
