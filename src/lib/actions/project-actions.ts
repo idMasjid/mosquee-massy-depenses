@@ -207,6 +207,10 @@ export async function updateBudgetLine(id: string, raw: unknown): Promise<Action
 
 export async function setProjectActive(id: string, isActive: boolean): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.project.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Projet introuvable." };
+  }
   await prisma.project.update({ where: { id }, data: { isActive } });
   revalidatePath("/projects");
   revalidatePath("/admin/projects");
@@ -230,6 +234,10 @@ export async function deleteBudgetLine(id: string): Promise<ActionResult> {
 
 export async function setBudgetLineActive(id: string, isActive: boolean): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.budgetLine.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Ligne budgétaire introuvable." };
+  }
   await prisma.budgetLine.update({ where: { id }, data: { isActive } });
   revalidatePath("/projects");
   revalidatePath("/expenses/new");

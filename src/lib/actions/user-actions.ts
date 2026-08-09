@@ -35,6 +35,11 @@ export async function updateUser(raw: unknown): Promise<ActionResult> {
   }
   const { id, name, role, isActive, newPassword } = parsed.data;
 
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Utilisateur introuvable." };
+  }
+
   const isDemotingOrDeactivatingSelf = id === session.user.id && (role !== "ADMIN" || !isActive);
   if (isDemotingOrDeactivatingSelf) {
     const otherActiveAdmins = await prisma.user.count({

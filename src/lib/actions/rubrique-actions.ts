@@ -59,6 +59,10 @@ export async function reorderRubriquesDashboard(projectId: string, orderedIds: s
 
 export async function deleteAllowedRubrique(id: string): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.allowedRubrique.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Catégorie introuvable." };
+  }
   await prisma.allowedRubrique.delete({ where: { id } });
   revalidatePath("/admin/rubriques");
   return { success: true };

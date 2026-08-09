@@ -51,6 +51,10 @@ export async function updatePaymentType(id: string, rawName: unknown): Promise<A
 
 export async function deletePaymentType(id: string): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.paymentType.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Type de paiement introuvable." };
+  }
   await prisma.paymentType.delete({ where: { id } });
   revalidatePath("/admin/payment-types");
   return { success: true };

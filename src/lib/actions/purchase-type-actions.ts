@@ -51,6 +51,10 @@ export async function updatePurchaseType(id: string, rawName: unknown): Promise<
 
 export async function deletePurchaseType(id: string): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.purchaseType.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Type d'achat introuvable." };
+  }
   await prisma.purchaseType.delete({ where: { id } });
   revalidatePath("/admin/purchase-types");
   return { success: true };

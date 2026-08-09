@@ -51,6 +51,10 @@ export async function updateSupplier(id: string, rawName: unknown): Promise<Acti
 
 export async function deleteSupplier(id: string): Promise<ActionResult> {
   await requireRole(["ADMIN", "IT"]);
+  const existing = await prisma.supplier.findUnique({ where: { id } });
+  if (!existing) {
+    return { success: false, error: "Fournisseur introuvable." };
+  }
   await prisma.supplier.delete({ where: { id } });
   revalidatePath("/admin/suppliers");
   return { success: true };
