@@ -304,12 +304,45 @@ export async function bulkTransitionExpenses(ids: string[], toStatus: ExpenseSta
   return { success: true, updated, skipped: ids.length - updated };
 }
 
+// supplierName/paymentType/purchaseType are plain snapshot columns (no DB FK,
+// see schema.prisma) so bulk reassignment must check the closed list itself —
+// otherwise any string submitted for the field gets written to every selected
+// expense, diverging from the Fournisseurs/Types picklists.
+async function resolveReassignValue(
+  field: BulkReassignField,
+  value: string,
+): Promise<{ ok: true; value: string } | { ok: false; error: string }> {
+  switch (field) {
+    case "supplierName": {
+      const supplier = await prisma.supplier.findUnique({ where: { name: value } });
+      if (!supplier) return { ok: false, error: `Fournisseur « ${value} » introuvable.` };
+      return { ok: true, value: supplier.name };
+    }
+    case "paymentType": {
+      const paymentType = await prisma.paymentType.findUnique({ where: { name: value } });
+      if (!paymentType) return { ok: false, error: `Type de paiement « ${value} » introuvable.` };
+      return { ok: true, value: paymentType.name };
+    }
+    case "purchaseType": {
+      const purchaseType = await prisma.purchaseType.findUnique({ where: { name: value } });
+      if (!purchaseType) return { ok: false, error: `Type d'achat « ${value} » introuvable.` };
+      return { ok: true, value: purchaseType.name };
+    }
+    default:
+      return { ok: false, error: "Champ invalide." };
+  }
+}
+
 export async function bulkReassignExpenses(ids: string[], field: BulkReassignField, rawValue: string): Promise<BulkActionResult> {
   const session = await requireRole(["ADMIN", "IT"]);
   if (ids.length === 0) return { success: false, error: "Aucune dépense sélectionnée." };
   if (!BULK_REASSIGN_FIELDS.includes(field)) return { success: false, error: "Champ invalide." };
-  const value = rawValue.trim();
-  if (!value) return { success: false, error: "Une valeur est requise." };
+  const rawTrimmed = rawValue.trim();
+  if (!rawTrimmed) return { success: false, error: "Une valeur est requise." };
+
+  const resolved = await resolveReassignValue(field, rawTrimmed);
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const value = resolved.value;
 
   const expenses = await prisma.expense.findMany({ where: { id: { in: ids } }, select: { id: true, status: true } });
   let updated = 0;
