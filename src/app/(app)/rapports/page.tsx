@@ -1,12 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/rbac";
-import { getBudgetOverview } from "@/lib/aggregations";
+import { getAvailableExerciceYears, getBudgetOverview } from "@/lib/aggregations";
+import { parseExerciceParam } from "@/lib/exercice";
+import { ExerciceFilter } from "@/components/exercice/exercice-filter";
 import { RecapView, type RecapRow } from "@/components/rapports/recap-view";
 
-export default async function RapportsPage() {
+export default async function RapportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exercices?: string }>;
+}) {
   await requireSession();
-  const [overview, rapportsProjects, budgetLineRapportsOrders] = await Promise.all([
-    getBudgetOverview(),
+  const { exercices } = await searchParams;
+  const selection = parseExerciceParam(exercices);
+
+  const [availableYears, overview, rapportsProjects, budgetLineRapportsOrders] = await Promise.all([
+    getAvailableExerciceYears(),
+    getBudgetOverview(selection),
     prisma.project.findMany({ orderBy: [{ rapportsOrder: "asc" }, { name: "asc" }], select: { id: true } }),
     prisma.budgetLine.findMany({ select: { id: true, rapportsOrder: true } }),
   ]);
@@ -35,11 +45,14 @@ export default async function RapportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="print:hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">Récapitulatif des dépenses</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vue consolidée par projet — budget, réalisé, engagé et restant.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Récapitulatif des dépenses</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Vue consolidée par projet — budget, réalisé, engagé et restant.
+          </p>
+        </div>
+        <ExerciceFilter availableYears={availableYears} selection={selection} />
       </div>
       <RecapView rows={rows} />
     </div>

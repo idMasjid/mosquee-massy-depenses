@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
+import { getAvailableExerciceYears, getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
+import { CURRENT_EXERCICE_YEAR, parseExerciceParam } from "@/lib/exercice";
 import { formatEUR, fromCents } from "@/lib/money";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { DashboardProjectPanels } from "@/components/dashboard/dashboard-project-panels";
 import { SpendTimeseriesChart, type SpendPoint } from "@/components/dashboard/spend-timeseries-chart";
+import { ExerciceFilter } from "@/components/exercice/exercice-filter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function buildSpendSeries(monthly: { month: string; realiseCents: number }[], runRateCents: number): SpendPoint[] {
+function buildSpendSeries(
+  monthly: { month: string; realiseCents: number }[],
+  runRateCents: number,
+  withProjection: boolean,
+): SpendPoint[] {
   const points: SpendPoint[] = [];
   let cumulative = 0;
   for (const m of monthly) {
@@ -17,15 +23,15 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
     points.push({ month: m.month, realise: fromCents(cumulative) });
   }
 
+  if (!withProjection || points.length === 0) return points;
+
   const lastMonth = monthly.at(-1)?.month;
   const now = new Date();
   const currentKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const startKey = lastMonth ?? currentKey;
   const [startYear, startMonthNum] = startKey.split("-").map(Number);
 
-  if (points.length > 0) {
-    points[points.length - 1] = { ...points[points.length - 1], projection: points[points.length - 1].realise };
-  }
+  points[points.length - 1] = { ...points[points.length - 1], projection: points[points.length - 1].realise };
 
   let projectionCumulative = cumulative;
   for (let i = 1; i <= 12 - startMonthNum; i++) {
@@ -38,19 +44,28 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
   return points;
 }
 
-export default async function DashboardPage() {
-  const [overview, monthly, forecast, dashboardProjects, allowedRubriques, pendingImports] = await Promise.all([
-    getBudgetOverview(),
-    getMonthlySpend(),
-    getForecastSummary(),
-    prisma.project.findMany({ orderBy: [{ dashboardOrder: "asc" }, { name: "asc" }], select: { id: true } }),
-    prisma.allowedRubrique.findMany({ select: { id: true, projectId: true, rubrique: true, dashboardOrder: true } }),
-    prisma.expense.aggregate({
-      where: { status: "IMPORT_A_VALIDER" },
-      _count: true,
-      _sum: { totalTTCCents: true },
-    }),
-  ]);
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exercices?: string }>;
+}) {
+  const { exercices } = await searchParams;
+  const selection = parseExerciceParam(exercices);
+
+  const [availableYears, overview, monthly, forecast, dashboardProjects, allowedRubriques, pendingImports] =
+    await Promise.all([
+      getAvailableExerciceYears(),
+      getBudgetOverview(selection),
+      getMonthlySpend(selection),
+      getForecastSummary(selection),
+      prisma.project.findMany({ orderBy: [{ dashboardOrder: "asc" }, { name: "asc" }], select: { id: true } }),
+      prisma.allowedRubrique.findMany({ select: { id: true, projectId: true, rubrique: true, dashboardOrder: true } }),
+      prisma.expense.aggregate({
+        where: { status: "IMPORT_A_VALIDER" },
+        _count: true,
+        _sum: { totalTTCCents: true },
+      }),
+    ]);
   const pendingImportsCount = pendingImports._count;
   const pendingImportsTotalCents = pendingImports._sum.totalTTCCents ?? 0;
   // Independent from the Projets page's own order — reordering "Budget par
@@ -114,13 +129,16 @@ export default async function DashboardPage() {
     (a, b) => (dashboardRank.get(a[0]) ?? 0) - (dashboardRank.get(b[0]) ?? 0),
   );
 
-  const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents);
+  const spendSeries = buildSpendSeries(monthly, forecast.monthlyRunRateCents, forecast.projectionAvailable);
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Vue d&apos;ensemble des dépenses et du budget.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Vue d&apos;ensemble des dépenses et du budget.</p>
+        </div>
+        <ExerciceFilter availableYears={availableYears} selection={selection} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -134,12 +152,14 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <StatTile
-        label={`Projection fin d'exercice ${new Date().getUTCFullYear()} (si tout ce qui est engagé se réalise, au rythme actuel)`}
-        value={formatEUR(forecast.projectedYearEndCents)}
-        hint={`Rythme mensuel moyen (3 derniers mois): ${formatEUR(forecast.monthlyRunRateCents)}`}
-        tone={forecast.projectedYearEndCents > forecast.totalBudgetCents ? "warning" : "default"}
-      />
+      {forecast.projectionAvailable && (
+        <StatTile
+          label={`Projection fin d'exercice ${CURRENT_EXERCICE_YEAR} (si tout ce qui est engagé se réalise, au rythme actuel)`}
+          value={formatEUR(forecast.projectedYearEndCents)}
+          hint={`Rythme mensuel moyen (3 derniers mois): ${formatEUR(forecast.monthlyRunRateCents)}`}
+          tone={forecast.projectedYearEndCents > forecast.totalBudgetCents ? "warning" : "default"}
+        />
+      )}
 
       {pendingImportsCount > 0 && (
         <div

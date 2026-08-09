@@ -1,18 +1,28 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/rbac";
-import { getBudgetOverview } from "@/lib/aggregations";
+import { getAvailableExerciceYears, getBudgetOverview } from "@/lib/aggregations";
+import { parseExerciceParam } from "@/lib/exercice";
+import { ExerciceFilter } from "@/components/exercice/exercice-filter";
 import { NewBudgetLineDialog } from "@/components/projects/new-budget-line-dialog";
 import { SortableProjectsList } from "@/components/projects/sortable-projects-list";
 import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exercices?: string }>;
+}) {
   const session = await requireSession();
   const canManage = session.user.role === "ADMIN" || session.user.role === "IT";
   const isAdmin = session.user.role === "ADMIN";
 
-  const [projects, overview, allowedRubriques] = await Promise.all([
+  const { exercices } = await searchParams;
+  const selection = parseExerciceParam(exercices);
+
+  const [projects, availableYears, overview, allowedRubriques] = await Promise.all([
     prisma.project.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] }),
-    getBudgetOverview(),
+    getAvailableExerciceYears(),
+    getBudgetOverview(selection),
     prisma.allowedRubrique.findMany({ orderBy: [{ order: "asc" }, { rubrique: "asc" }] }),
   ]);
 
@@ -37,14 +47,15 @@ export default async function ProjectsPage() {
             Suivi des budgets alloués par projet et catégorie.
           </p>
         </div>
-        {canManage && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          <ExerciceFilter availableYears={availableYears} selection={selection} />
+          {canManage && (
             <NewBudgetLineDialog
               projects={projects.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
               allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
             />
-          </div>
-        )}
+          )}
+        </div>
       </StickyPageHeader>
 
       <SortableProjectsList

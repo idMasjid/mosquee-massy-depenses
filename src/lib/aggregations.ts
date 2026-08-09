@@ -1,6 +1,22 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ENGAGED_STATUSES, type ExpenseStatus } from "@/lib/constants";
+import {
+  CURRENT_EXERCICE_YEAR,
+  expenseExerciceYear,
+  exerciceSelectionMatches,
+  isDefaultExerciceSelection,
+  type ExerciceSelection,
+} from "@/lib/exercice";
+
+const DEFAULT_SELECTION: ExerciceSelection = [CURRENT_EXERCICE_YEAR];
+
+export async function getAvailableExerciceYears(): Promise<number[]> {
+  const expenses = await prisma.expense.findMany({ select: { invoiceDate: true, entryDate: true } });
+  const years = new Set<number>([CURRENT_EXERCICE_YEAR]);
+  for (const expense of expenses) years.add(expenseExerciceYear(expense));
+  return [...years].sort((a, b) => b - a);
+}
 
 export type BudgetLineTotal = {
   budgetLineId: string;
@@ -15,7 +31,7 @@ export type BudgetLineTotal = {
   isActive: boolean;
 };
 
-export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
+export async function getBudgetOverview(selection: ExerciceSelection = DEFAULT_SELECTION): Promise<BudgetLineTotal[]> {
   const [budgetLines, expenses] = await Promise.all([
     prisma.budgetLine.findMany({
       include: { project: true },
@@ -23,13 +39,14 @@ export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
     }),
     prisma.expense.findMany({
       where: { budgetLineId: { not: null } },
-      select: { budgetLineId: true, status: true, totalTTCCents: true },
+      select: { budgetLineId: true, status: true, totalTTCCents: true, invoiceDate: true, entryDate: true },
     }),
   ]);
 
   const totals = new Map<string, { realise: number; engage: number }>();
   for (const expense of expenses) {
     if (!expense.budgetLineId) continue;
+    if (!exerciceSelectionMatches(selection, expenseExerciceYear(expense))) continue;
     const bucket = totals.get(expense.budgetLineId) ?? { realise: 0, engage: 0 };
     if (expense.status === "REALISE") {
       bucket.realise += expense.totalTTCCents;
@@ -58,7 +75,7 @@ export async function getBudgetOverview(): Promise<BudgetLineTotal[]> {
 
 export type MonthlySpendEntry = { month: string; realiseCents: number };
 
-export async function getMonthlySpend(): Promise<MonthlySpendEntry[]> {
+export async function getMonthlySpend(selection: ExerciceSelection = DEFAULT_SELECTION): Promise<MonthlySpendEntry[]> {
   const expenses = await prisma.expense.findMany({
     where: { status: "REALISE" },
     select: { invoiceDate: true, entryDate: true, totalTTCCents: true },
@@ -70,7 +87,9 @@ export async function getMonthlySpend(): Promise<MonthlySpendEntry[]> {
     // (when it was recorded) is only a fallback since data entry often lags
     // behind — realizedAt (workflow status date) has the same lag problem.
     const date = expense.invoiceDate ?? expense.entryDate;
-    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    const year = date.getUTCFullYear();
+    if (!exerciceSelectionMatches(selection, year)) continue;
+    const key = `${year}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
     buckets.set(key, (buckets.get(key) ?? 0) + expense.totalTTCCents);
   }
 
@@ -86,15 +105,21 @@ export type ForecastSummary = {
   totalRemainingCents: number;
   monthlyRunRateCents: number;
   projectedYearEndCents: number;
+  // The "fin d'exercice" projection only makes sense when looking at the
+  // current, still-running exercice — a past year is closed, a multi-year or
+  // "all" selection isn't a single year to project the end of.
+  projectionAvailable: boolean;
 };
 
-export async function getForecastSummary(): Promise<ForecastSummary> {
-  const [overview, monthly] = await Promise.all([getBudgetOverview(), getMonthlySpend()]);
+export async function getForecastSummary(selection: ExerciceSelection = DEFAULT_SELECTION): Promise<ForecastSummary> {
+  const [overview, monthly] = await Promise.all([getBudgetOverview(selection), getMonthlySpend(selection)]);
 
   const totalBudgetCents = overview.reduce((sum, l) => sum + l.budgetedAmountHTCents, 0);
   const totalRealiseCents = overview.reduce((sum, l) => sum + l.realiseCents, 0);
   const totalEngageCents = overview.reduce((sum, l) => sum + l.engageCents, 0);
   const totalRemainingCents = totalBudgetCents - totalRealiseCents - totalEngageCents;
+
+  const projectionAvailable = isDefaultExerciceSelection(selection);
 
   const lastThreeMonths = monthly.slice(-3);
   const monthlyRunRateCents = lastThreeMonths.length
@@ -103,8 +128,9 @@ export async function getForecastSummary(): Promise<ForecastSummary> {
 
   const now = new Date();
   const monthsRemainingInYear = 12 - now.getUTCMonth() - 1;
-  const projectedYearEndCents =
-    totalRealiseCents + totalEngageCents + monthlyRunRateCents * Math.max(monthsRemainingInYear, 0);
+  const projectedYearEndCents = projectionAvailable
+    ? totalRealiseCents + totalEngageCents + monthlyRunRateCents * Math.max(monthsRemainingInYear, 0)
+    : totalRealiseCents + totalEngageCents;
 
   return {
     totalBudgetCents,
@@ -113,5 +139,6 @@ export async function getForecastSummary(): Promise<ForecastSummary> {
     totalRemainingCents,
     monthlyRunRateCents,
     projectedYearEndCents,
+    projectionAvailable,
   };
 }
