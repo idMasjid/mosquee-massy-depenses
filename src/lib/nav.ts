@@ -36,12 +36,13 @@ const SETTINGS_ROLES: Role[] = ["ADMIN", "IT"];
 export const NAV_ITEMS: NavEntry[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
   { href: "/expenses", label: "Dépenses", icon: Receipt, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
-  { href: "/projects", label: "Projets & budgets", icon: FolderKanban, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
+  { href: "/projects", label: "Budgets", icon: FolderKanban, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
   { href: "/rapports", label: "Récapitulatif", icon: FileText, roles: ["ADMIN", "IT", "BUREAU", "LECTEUR"] },
   {
     label: "Paramétrage",
     icon: Settings,
     children: [
+      { href: "/admin/projects", label: "Projets", icon: FolderKanban, roles: SETTINGS_ROLES },
       { href: "/admin/rubriques", label: "Catégories", icon: Tags, roles: SETTINGS_ROLES },
       { href: "/admin/suppliers", label: "Fournisseurs", icon: Truck, roles: SETTINGS_ROLES },
       { href: "/admin/payment-types", label: "Types de paiement", icon: CreditCard, roles: SETTINGS_ROLES },

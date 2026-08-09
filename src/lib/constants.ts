@@ -41,4 +41,10 @@ export const STATUS_COLORS: Record<ExpenseStatus, string> = {
 
 export const ENGAGED_STATUSES: ExpenseStatus[] = ["A_VENIR", "EN_ATTENTE", "VALIDE"];
 
+// Fields eligible for bulk reassignment on the expenses list. Lives here (not
+// in the "use server" expense-actions.ts) because "use server" files may only
+// export async functions — a plain const export breaks when imported client-side.
+export const BULK_REASSIGN_FIELDS = ["supplierName", "paymentType", "purchaseType"] as const;
+export type BulkReassignField = (typeof BULK_REASSIGN_FIELDS)[number];
+
 export const LEGACY_PLACEHOLDER_EMAIL_DOMAIN = "import.mosquee-massy.local";

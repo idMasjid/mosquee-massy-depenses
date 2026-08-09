@@ -311,7 +311,7 @@ export function RecapView({ rows }: { rows: RecapRow[] }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 print:hidden">
+      <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-y bg-background px-4 py-3 md:-mx-6 md:px-6 print:hidden print:static print:m-0 print:border-0 print:p-0">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             placeholder="Rechercher un projet, une catégorie ou un produit…"

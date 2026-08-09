@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -53,7 +53,13 @@ export function EditBudgetLineDialog({
     },
   });
 
-  const availableRubriques = allowedRubriques.filter((r) => r.projectId === line.projectId);
+  const availableRubriques = useMemo(
+    () =>
+      allowedRubriques
+        .filter((r) => r.projectId === line.projectId)
+        .sort((a, b) => a.rubrique.localeCompare(b.rubrique, "fr")),
+    [allowedRubriques, line.projectId],
+  );
 
   const onSubmit = async (values: BudgetLineUpdateValues) => {
     const result = await updateBudgetLine(line.id, values);

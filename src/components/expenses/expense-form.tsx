@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { FileScan } from "lucide-react";
+import { FileScan, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,19 +13,28 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { SelectWithCreate, type SelectWithCreateOption } from "@/components/expenses/select-with-create";
 import { expenseFormSchema, type ExpenseFormValues } from "@/lib/validations/expense";
 import { createExpense, updateExpense } from "@/lib/actions/expense-actions";
 import { extractInvoiceData } from "@/lib/actions/invoice-actions";
-import { createSupplier } from "@/lib/actions/supplier-actions";
-import { createPaymentType } from "@/lib/actions/payment-type-actions";
-import { createPurchaseType } from "@/lib/actions/purchase-type-actions";
+import { createAllowedRubrique } from "@/lib/actions/rubrique-actions";
+import {
+  createSupplierOption,
+  createPaymentTypeOption,
+  createPurchaseTypeOption,
+  createProjectOption,
+} from "@/components/expenses/create-option-adapters";
 import { STATUS_LABELS, type ExpenseStatus } from "@/lib/constants";
 import { numeric } from "@/lib/form-utils";
+
+const UNLINKED_CATEGORY = "__unlinked__";
+const CREATE_CATEGORY = "__create_category__";
 
 export type BudgetLineOption = {
   id: string;
@@ -88,25 +97,34 @@ export function ExpenseForm({
   });
 
   const projectId = watch("projectId");
+  const rubriqueLabelValue = watch("rubriqueLabel");
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const [invoiceFileName, setInvoiceFileName] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
+  const [projectOptions, setProjectOptions] = useState(projects);
   const [supplierOptions, setSupplierOptions] = useState(() => withCurrentValue(suppliers, defaultValues?.supplierName));
   const [paymentTypeOptions, setPaymentTypeOptions] = useState(() => withCurrentValue(paymentTypes, defaultValues?.paymentType));
   const [purchaseTypeOptions, setPurchaseTypeOptions] = useState(() => withCurrentValue(purchaseTypes, defaultValues?.purchaseType));
 
-  const handleCreateSupplier = async (name: string) => {
-    const result = await createSupplier(name);
-    return result.success ? { success: true as const, id: result.supplier.id, name: result.supplier.name } : result;
-  };
-  const handleCreatePaymentType = async (name: string) => {
-    const result = await createPaymentType(name);
-    return result.success ? { success: true as const, id: result.paymentType.id, name: result.paymentType.name } : result;
-  };
-  const handleCreatePurchaseType = async (name: string) => {
-    const result = await createPurchaseType(name);
-    return result.success ? { success: true as const, id: result.purchaseType.id, name: result.purchaseType.name } : result;
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const {
+    register: registerCategory,
+    handleSubmit: handleCategorySubmit,
+    reset: resetCategoryForm,
+    formState: { errors: categoryErrors, isSubmitting: isCategorySubmitting },
+  } = useForm<{ name: string }>({ defaultValues: { name: "" } });
+
+  const onCreateCategory = async (values: { name: string }) => {
+    const result = await createAllowedRubrique({ projectId, rubrique: values.name });
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    setValue("budgetLineId", undefined);
+    setValue("rubriqueLabel", values.name);
+    resetCategoryForm({ name: "" });
+    setCategoryDialogOpen(false);
   };
 
   // Matches free-text AI-extracted values against the closed lists (accent/case-insensitive
@@ -166,7 +184,13 @@ export function ExpenseForm({
   };
 
   const availableLines = useMemo(
-    () => budgetLines.filter((l) => l.projectId === projectId),
+    () =>
+      budgetLines
+        .filter((l) => l.projectId === projectId)
+        .sort(
+          (a, b) =>
+            a.rubrique.localeCompare(b.rubrique, "fr") || (a.productTitle ?? "").localeCompare(b.productTitle ?? "", "fr"),
+        ),
     [budgetLines, projectId],
   );
 
@@ -249,7 +273,7 @@ export function ExpenseForm({
                   onValueChange={field.onChange}
                   options={supplierOptions}
                   onOptionCreated={(o) => setSupplierOptions((prev) => [...prev, o])}
-                  onCreate={handleCreateSupplier}
+                  onCreate={createSupplierOption}
                   placeholder="Sélectionner un fournisseur"
                   createLabel="Ajouter un fournisseur"
                   dialogTitle="Nouveau fournisseur"
@@ -263,26 +287,21 @@ export function ExpenseForm({
               control={control}
               name="projectId"
               render={({ field }) => (
-                <Select
-                  items={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
+                <SelectWithCreate
                   value={field.value}
                   onValueChange={(v) => {
                     field.onChange(v);
                     setValue("budgetLineId", undefined);
                     setValue("rubriqueLabel", "");
                   }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionner un projet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={projectOptions}
+                  onOptionCreated={(o) => setProjectOptions((prev) => [...prev, o])}
+                  onCreate={createProjectOption}
+                  valueKey="id"
+                  placeholder="Sélectionner un projet"
+                  createLabel="Ajouter un projet"
+                  dialogTitle="Nouveau projet"
+                />
               )}
             />
           </Field>
@@ -291,39 +310,94 @@ export function ExpenseForm({
             <Controller
               control={control}
               name="budgetLineId"
-              render={({ field }) => (
-                <Select
-                  items={Object.fromEntries(
-                    availableLines.map((l) => [l.id, `${l.rubrique}${l.productTitle ? ` — ${l.productTitle}` : ""}`]),
-                  )}
-                  value={field.value}
-                  onValueChange={(v) => {
-                    field.onChange(v);
-                    const line = availableLines.find((l) => l.id === v);
-                    setValue("rubriqueLabel", line?.rubrique ?? "");
-                  }}
-                  disabled={!projectId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={projectId ? "Sélectionner une catégorie" : "Choisir un projet d'abord"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableLines.length === 0 ? (
-                      <p className="p-2 text-sm text-muted-foreground">
-                        Aucune ligne budgétaire pour ce projet. Créez-la d&apos;abord dans Projets &amp; budgets.
-                      </p>
-                    ) : (
-                      availableLines.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.rubrique}
-                          {l.productTitle ? ` — ${l.productTitle}` : ""}
+              render={({ field }) => {
+                // Imported/legacy expenses can have a rubriqueLabel with no matching
+                // budget line (e.g. the import couldn't confidently match a product
+                // title) — show that text as the current selection instead of a
+                // misleading blank dropdown, without forcing a real budget line pick.
+                const showUnlinked = !field.value && !!rubriqueLabelValue;
+                return (
+                  <Select
+                    items={{
+                      [CREATE_CATEGORY]: "Ajouter une catégorie",
+                      ...(showUnlinked ? { [UNLINKED_CATEGORY]: `${rubriqueLabelValue} (non liée à une ligne budgétaire)` } : {}),
+                      ...Object.fromEntries(
+                        availableLines.map((l) => [l.id, `${l.rubrique}${l.productTitle ? ` — ${l.productTitle}` : ""}`]),
+                      ),
+                    }}
+                    value={showUnlinked ? UNLINKED_CATEGORY : field.value}
+                    onValueChange={(v) => {
+                      if (v === CREATE_CATEGORY) {
+                        setCategoryDialogOpen(true);
+                        return;
+                      }
+                      if (v === UNLINKED_CATEGORY) return;
+                      field.onChange(v);
+                      const line = availableLines.find((l) => l.id === v);
+                      setValue("rubriqueLabel", line?.rubrique ?? "");
+                    }}
+                    disabled={!projectId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={projectId ? "Sélectionner une catégorie" : "Choisir un projet d'abord"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={CREATE_CATEGORY} className="font-medium text-primary">
+                        <Plus className="size-4" />
+                        Ajouter une catégorie
+                      </SelectItem>
+                      <SelectSeparator />
+                      {showUnlinked && (
+                        <SelectItem value={UNLINKED_CATEGORY}>
+                          {rubriqueLabelValue}{" "}
+                          <span className="text-muted-foreground">(non liée à une ligne budgétaire)</span>
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
+                      )}
+                      {availableLines.length === 0 ? (
+                        <p className="p-2 text-sm text-muted-foreground">
+                          Aucune ligne budgétaire pour ce projet. Créez-la d&apos;abord dans Budgets.
+                        </p>
+                      ) : (
+                        availableLines.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.rubrique}
+                            {l.productTitle ? ` — ${l.productTitle}` : ""}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                );
+              }}
             />
+            <Dialog
+              open={categoryDialogOpen}
+              onOpenChange={(v) => {
+                setCategoryDialogOpen(v);
+                if (v) resetCategoryForm({ name: "" });
+              }}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nouvelle catégorie</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCategorySubmit(onCreateCategory)} className="flex flex-col gap-4">
+                  <Field label="Nom" htmlFor="new-category-name" required error={categoryErrors.name?.message}>
+                    <Input id="new-category-name" autoFocus {...registerCategory("name", { required: "Le nom est requis." })} />
+                  </Field>
+                  <p className="text-sm text-muted-foreground">
+                    Crée uniquement la catégorie pour ce projet. La dépense ne sera reliée à aucune ligne budgétaire précise —
+                    à faire plus tard depuis la page Budgets si besoin d&apos;un montant.
+                  </p>
+                  <DialogFooter>
+                    <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
+                    <Button type="submit" disabled={isCategorySubmitting}>
+                      Créer
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </Field>
         </div>
       </section>
@@ -391,7 +465,7 @@ export function ExpenseForm({
                   onValueChange={field.onChange}
                   options={paymentTypeOptions}
                   onOptionCreated={(o) => setPaymentTypeOptions((prev) => [...prev, o])}
-                  onCreate={handleCreatePaymentType}
+                  onCreate={createPaymentTypeOption}
                   placeholder="Sélectionner un type de paiement"
                   createLabel="Ajouter un type de paiement"
                   dialogTitle="Nouveau type de paiement"
@@ -412,7 +486,7 @@ export function ExpenseForm({
                   onValueChange={field.onChange}
                   options={purchaseTypeOptions}
                   onOptionCreated={(o) => setPurchaseTypeOptions((prev) => [...prev, o])}
-                  onCreate={handleCreatePurchaseType}
+                  onCreate={createPurchaseTypeOption}
                   placeholder="Sélectionner un type d'achat"
                   createLabel="Ajouter un type d'achat"
                   dialogTitle="Nouveau type d'achat"

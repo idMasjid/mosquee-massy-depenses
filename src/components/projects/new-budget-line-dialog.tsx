@@ -44,8 +44,15 @@ export function NewBudgetLineDialog({
   });
 
   const projectId = watch("projectId");
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => a.name.localeCompare(b.name, "fr")),
+    [projects],
+  );
   const availableRubriques = useMemo(
-    () => allowedRubriques.filter((r) => r.projectId === projectId),
+    () =>
+      allowedRubriques
+        .filter((r) => r.projectId === projectId)
+        .sort((a, b) => a.rubrique.localeCompare(b.rubrique, "fr")),
     [allowedRubriques, projectId],
   );
 
@@ -77,7 +84,7 @@ export function NewBudgetLineDialog({
               name="projectId"
               render={({ field }) => (
                 <Select
-                  items={Object.fromEntries(projects.map((p) => [p.id, p.name]))}
+                  items={Object.fromEntries(sortedProjects.map((p) => [p.id, p.name]))}
                   value={field.value}
                   onValueChange={(v) => {
                     field.onChange(v);
@@ -88,7 +95,7 @@ export function NewBudgetLineDialog({
                     <SelectValue placeholder="Sélectionner un projet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map((p) => (
+                    {sortedProjects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
                       </SelectItem>

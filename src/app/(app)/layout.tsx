@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { user } = session;
 
   return (
-    <div className="flex min-h-svh">
+    <div className="flex h-svh overflow-hidden print:h-auto print:overflow-visible">
       <div className="print:hidden">
         <AppSidebar role={user.role} />
       </div>
@@ -17,7 +17,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             user={{ name: user.name ?? user.email ?? "Utilisateur", email: user.email ?? "", image: user.image, role: user.role }}
           />
         </div>
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6 print:p-0">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 print:overflow-visible print:p-0">
+          {children}
+        </main>
       </div>
     </div>
   );

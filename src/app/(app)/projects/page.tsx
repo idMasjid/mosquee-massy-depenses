@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/rbac";
 import { getBudgetOverview } from "@/lib/aggregations";
-import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { NewBudgetLineDialog } from "@/components/projects/new-budget-line-dialog";
 import { SortableProjectsList } from "@/components/projects/sortable-projects-list";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 
 export default async function ProjectsPage() {
   const session = await requireSession();
   const canManage = session.user.role === "ADMIN" || session.user.role === "IT";
+  const isAdmin = session.user.role === "ADMIN";
 
   const [projects, overview, allowedRubriques] = await Promise.all([
     prisma.project.findMany({ orderBy: [{ order: "asc" }, { name: "asc" }] }),
@@ -29,27 +30,27 @@ export default async function ProjectsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <StickyPageHeader className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Projets &amp; budgets</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Budgets</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Suivi des budgets alloués par projet et catégorie.
           </p>
         </div>
         {canManage && (
           <div className="flex gap-2">
-            <NewProjectDialog />
             <NewBudgetLineDialog
               projects={projects.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
               allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
             />
           </div>
         )}
-      </div>
+      </StickyPageHeader>
 
       <SortableProjectsList
         projectsWithLines={projectsWithLines}
         canManage={canManage}
+        isAdmin={isAdmin}
         allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
       />
     </div>

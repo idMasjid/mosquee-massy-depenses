@@ -7,17 +7,22 @@ import { toCents } from "@/lib/money";
 import { projectFormSchema, budgetLineFormSchema, budgetLineUpdateSchema } from "@/lib/validations/project";
 import type { ActionResult } from "@/lib/actions/expense-actions";
 
-export async function createProject(raw: unknown): Promise<ActionResult> {
+export type CreateProjectResult =
+  | { success: true; project: { id: string; name: string } }
+  | { success: false; error: string };
+
+export async function createProject(raw: unknown): Promise<CreateProjectResult> {
   await requireRole(["ADMIN", "IT"]);
   const parsed = projectFormSchema.safeParse(raw);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
+  let project;
   try {
     const last = await prisma.project.aggregate({
       _max: { order: true, dashboardOrder: true, rapportsOrder: true },
     });
-    await prisma.project.create({
+    project = await prisma.project.create({
       data: {
         name: parsed.data.name,
         description: parsed.data.description || null,
@@ -30,7 +35,8 @@ export async function createProject(raw: unknown): Promise<ActionResult> {
     return { success: false, error: "Un projet avec ce nom existe déjà." };
   }
   revalidatePath("/projects");
-  return { success: true };
+  revalidatePath("/admin/projects");
+  return { success: true, project: { id: project.id, name: project.name } };
 }
 
 // Each page (Projets / Dashboard / Récapitulatif) has its own independent
@@ -84,6 +90,17 @@ export async function createBudgetLine(raw: unknown): Promise<ActionResult> {
       success: false,
       error: "Cette catégorie n'est pas autorisée pour ce projet. Ajoutez-la d'abord dans Catégories.",
     };
+  }
+
+  // The @@unique([projectId, rubrique, productTitle]) constraint doesn't catch
+  // this case: SQL treats every NULL productTitle as distinct, so the DB alone
+  // would silently allow a second general (no product title) line for the same
+  // projet/catégorie. Check explicitly instead of relying on the unique index.
+  const duplicate = await prisma.budgetLine.findFirst({
+    where: { projectId: input.projectId, rubrique: input.rubrique, productTitle: input.productTitle || null },
+  });
+  if (duplicate) {
+    return { success: false, error: "Cette ligne budgétaire existe déjà pour ce projet." };
   }
 
   try {
@@ -156,6 +173,18 @@ export async function updateBudgetLine(id: string, raw: unknown): Promise<Action
     };
   }
 
+  const duplicate = await prisma.budgetLine.findFirst({
+    where: {
+      id: { not: id },
+      projectId: current.projectId,
+      rubrique: input.rubrique,
+      productTitle: input.productTitle || null,
+    },
+  });
+  if (duplicate) {
+    return { success: false, error: "Une ligne budgétaire identique existe déjà pour ce projet." };
+  }
+
   try {
     await prisma.budgetLine.update({
       where: { id },
@@ -180,7 +209,22 @@ export async function setProjectActive(id: string, isActive: boolean): Promise<A
   await requireRole(["ADMIN", "IT"]);
   await prisma.project.update({ where: { id }, data: { isActive } });
   revalidatePath("/projects");
+  revalidatePath("/admin/projects");
   revalidatePath("/expenses/new");
+  return { success: true };
+}
+
+export async function deleteBudgetLine(id: string): Promise<ActionResult> {
+  await requireRole(["ADMIN"]);
+  const expenseCount = await prisma.expense.count({ where: { budgetLineId: id } });
+  if (expenseCount > 0) {
+    return {
+      success: false,
+      error: "Impossible de supprimer : des dépenses sont reliées à cette ligne budgétaire. Archivez-la plutôt.",
+    };
+  }
+  await prisma.budgetLine.delete({ where: { id } });
+  revalidatePath("/projects");
   return { success: true };
 }
 

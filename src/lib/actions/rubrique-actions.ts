@@ -28,6 +28,7 @@ export async function createAllowedRubrique(raw: unknown): Promise<ActionResult>
     return { success: false, error: "Cette catégorie est déjà autorisée pour ce projet." };
   }
   revalidatePath("/admin/rubriques");
+  revalidatePath("/expenses/new");
   return { success: true };
 }
 

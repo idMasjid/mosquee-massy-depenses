@@ -15,12 +15,15 @@ export default async function ExpensesPage({
   const { status } = await searchParams;
   const initialStatus = EXPENSE_STATUSES.find((s) => s === status);
 
-  const [expenses, projects] = await Promise.all([
+  const [expenses, projects, suppliers, paymentTypes, purchaseTypes] = await Promise.all([
     prisma.expense.findMany({
       include: { project: true },
       orderBy: { entryDate: "desc" },
     }),
     prisma.project.findMany({ orderBy: { name: "asc" } }),
+    prisma.supplier.findMany({ orderBy: { name: "asc" } }),
+    prisma.paymentType.findMany({ orderBy: { name: "asc" } }),
+    prisma.purchaseType.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const rows: ExpenseRow[] = expenses.map((e) => ({
@@ -37,23 +40,31 @@ export default async function ExpensesPage({
   const canCreate = session.user.role === "ADMIN" || session.user.role === "IT";
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Dépenses</h1>
-        {canCreate && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/expenses/import" />}>
-              <Upload className="size-4" />
-              Importer
-            </Button>
-            <Button size="sm" nativeButton={false} render={<Link href="/expenses/new" />}>
-              <Plus className="size-4" />
-              Nouvelle dépense
-            </Button>
-          </div>
-        )}
-      </div>
-      <ExpensesExplorer expenses={rows} projectNames={projects.map((p) => p.name)} initialStatus={initialStatus} />
-    </div>
+    <ExpensesExplorer
+      header={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Dépenses</h1>
+          {canCreate && (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/expenses/import" />}>
+                <Upload className="size-4" />
+                Importer
+              </Button>
+              <Button size="sm" nativeButton={false} render={<Link href="/expenses/new" />}>
+                <Plus className="size-4" />
+                Nouvelle dépense
+              </Button>
+            </div>
+          )}
+        </div>
+      }
+      expenses={rows}
+      projectNames={projects.map((p) => p.name)}
+      initialStatus={initialStatus}
+      role={session.user.role}
+      suppliers={suppliers}
+      paymentTypes={paymentTypes}
+      purchaseTypes={purchaseTypes}
+    />
   );
 }

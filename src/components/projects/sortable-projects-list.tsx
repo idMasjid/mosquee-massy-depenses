@@ -13,6 +13,7 @@ import { reorderProjects, reorderBudgetLines } from "@/lib/actions/project-actio
 import { EditBudgetLineDialog } from "@/components/projects/edit-budget-line-dialog";
 import { ArchiveProjectButton } from "@/components/projects/archive-project-button";
 import { ArchiveBudgetLineButton } from "@/components/projects/archive-budget-line-button";
+import { DeleteBudgetLineButton } from "@/components/projects/delete-budget-line-button";
 import type { BudgetLineTotal } from "@/lib/aggregations";
 
 type ProjectSummary = { id: string; name: string; description: string | null; isActive: boolean };
@@ -22,10 +23,12 @@ type LineWithConsumption = BudgetLineTotal & { good: boolean; pct: number };
 export function SortableProjectsList({
   projectsWithLines,
   canManage,
+  isAdmin,
   allowedRubriques,
 }: {
   projectsWithLines: { project: ProjectSummary; lines: BudgetLineTotal[] }[];
   canManage: boolean;
+  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const [items, setItems] = useState(projectsWithLines);
@@ -65,6 +68,7 @@ export function SortableProjectsList({
             project={project}
             lines={lines}
             canManage={canManage}
+            isAdmin={isAdmin}
             allowedRubriques={allowedRubriques}
           />
         ))}
@@ -77,11 +81,13 @@ function ProjectCard({
   project,
   lines,
   canManage,
+  isAdmin,
   allowedRubriques,
 }: {
   project: ProjectSummary;
   lines: BudgetLineTotal[];
   canManage: boolean;
+  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(project.id);
@@ -187,7 +193,13 @@ function ProjectCard({
               </TableHeader>
               <TableBody>
                 {linesWithConsumption.map((line) => (
-                  <BudgetLineRow key={line.budgetLineId} line={line} canManage={canManage} allowedRubriques={allowedRubriques} />
+                  <BudgetLineRow
+                    key={line.budgetLineId}
+                    line={line}
+                    canManage={canManage}
+                    isAdmin={isAdmin}
+                    allowedRubriques={allowedRubriques}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -196,7 +208,13 @@ function ProjectCard({
           {/* Mobile cards */}
           <div className="flex flex-col gap-2 p-3 md:hidden">
             {linesWithConsumption.map((line) => (
-              <BudgetLineCard key={line.budgetLineId} line={line} canManage={canManage} allowedRubriques={allowedRubriques} />
+              <BudgetLineCard
+                key={line.budgetLineId}
+                line={line}
+                canManage={canManage}
+                isAdmin={isAdmin}
+                allowedRubriques={allowedRubriques}
+              />
             ))}
           </div>
         </SortableGroup>
@@ -208,10 +226,12 @@ function ProjectCard({
 function BudgetLineRow({
   line,
   canManage,
+  isAdmin,
   allowedRubriques,
 }: {
   line: LineWithConsumption;
   canManage: boolean;
+  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(line.budgetLineId);
@@ -271,6 +291,7 @@ function BudgetLineRow({
               allowedRubriques={allowedRubriques}
             />
             <ArchiveBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} isActive={line.isActive} />
+            {isAdmin && <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />}
           </div>
         </TableCell>
       )}
@@ -281,10 +302,12 @@ function BudgetLineRow({
 function BudgetLineCard({
   line,
   canManage,
+  isAdmin,
   allowedRubriques,
 }: {
   line: LineWithConsumption;
   canManage: boolean;
+  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(line.budgetLineId);
@@ -319,6 +342,7 @@ function BudgetLineCard({
               allowedRubriques={allowedRubriques}
             />
             <ArchiveBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} isActive={line.isActive} />
+            {isAdmin && <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />}
           </div>
         )}
       </div>

@@ -61,12 +61,15 @@ export type MonthlySpendEntry = { month: string; realiseCents: number };
 export async function getMonthlySpend(): Promise<MonthlySpendEntry[]> {
   const expenses = await prisma.expense.findMany({
     where: { status: "REALISE" },
-    select: { realizedAt: true, entryDate: true, totalTTCCents: true },
+    select: { invoiceDate: true, entryDate: true, totalTTCCents: true },
   });
 
   const buckets = new Map<string, number>();
   for (const expense of expenses) {
-    const date = expense.realizedAt ?? expense.entryDate;
+    // The invoice date reflects when the purchase actually happened; entryDate
+    // (when it was recorded) is only a fallback since data entry often lags
+    // behind — realizedAt (workflow status date) has the same lag problem.
+    const date = expense.invoiceDate ?? expense.entryDate;
     const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
     buckets.set(key, (buckets.get(key) ?? 0) + expense.totalTTCCents);
   }

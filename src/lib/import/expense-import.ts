@@ -153,25 +153,34 @@ export async function findBudgetLineForImport(projectId: string, rubrique: strin
     where: { projectId_rubrique_productTitle: { projectId, rubrique, productTitle: productTitle ?? "" } },
   });
   if (exact) return exact;
-  if (!productTitle) return null;
 
   const candidates = await prisma.budgetLine.findMany({ where: { projectId } });
   if (candidates.length === 0) return null;
 
-  const normalizedExpenseTitle = normalizeTitle(productTitle);
   const sameRubrique = candidates.filter((c) => c.rubrique === rubrique);
-  const searchOrder = [sameRubrique, candidates];
 
-  for (const pool of searchOrder) {
-    const titleMatch = pool.find((c) => c.productTitle && normalizeTitle(c.productTitle) === normalizedExpenseTitle);
-    if (titleMatch) return titleMatch;
+  if (productTitle) {
+    const normalizedExpenseTitle = normalizeTitle(productTitle);
+    const searchOrder = [sameRubrique, candidates];
+
+    for (const pool of searchOrder) {
+      const titleMatch = pool.find((c) => c.productTitle && normalizeTitle(c.productTitle) === normalizedExpenseTitle);
+      if (titleMatch) return titleMatch;
+    }
+    for (const pool of searchOrder) {
+      const substringMatches = pool.filter(
+        (c) => c.productTitle && normalizedExpenseTitle.includes(normalizeTitle(c.productTitle)),
+      );
+      if (substringMatches.length === 1) return substringMatches[0];
+    }
   }
-  for (const pool of searchOrder) {
-    const substringMatches = pool.filter(
-      (c) => c.productTitle && normalizedExpenseTitle.includes(normalizeTitle(c.productTitle)),
-    );
-    if (substringMatches.length === 1) return substringMatches[0];
-  }
+
+  // No product-specific match (or no product title to match on) — if this
+  // rubrique has exactly one budget line in the project, it's unambiguous:
+  // that's the general/catch-all line for the whole category (common when a
+  // budget is tracked per rubrique rather than broken down per product).
+  if (sameRubrique.length === 1) return sameRubrique[0];
+
   return null;
 }
 
@@ -254,6 +263,11 @@ export async function mapRowToExpenseInput(
   }
 
   const budgetLine = await findBudgetLineForImport(projectId, rubrique, productTitle);
+  if (!budgetLine) {
+    return fail(
+      `aucune ligne budgétaire correspondant à la catégorie « ${rubrique} » (produit « ${productTitle} ») pour le projet « ${projectName} ». Créez-la d'abord dans Budgets.`,
+    );
+  }
 
   const unitPriceHTCents = cellToCents(row["Montant unitaire HT"]);
   const quantityRaw = cellToNumber(row["Quantité"]);
@@ -298,7 +312,7 @@ export async function mapRowToExpenseInput(
       segment: nonEmptyStr(row["Segment"]),
       rubriqueLabel: rubrique,
       projectId,
-      budgetLineId: budgetLine?.id ?? null,
+      budgetLineId: budgetLine.id,
     },
   };
 }

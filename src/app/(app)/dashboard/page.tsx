@@ -135,7 +135,7 @@ export default async function DashboardPage() {
       </div>
 
       <StatTile
-        label="Projection fin d'exercice (si tout ce qui est engagé se réalise, au rythme actuel)"
+        label={`Projection fin d'exercice ${new Date().getUTCFullYear()} (si tout ce qui est engagé se réalise, au rythme actuel)`}
         value={formatEUR(forecast.projectedYearEndCents)}
         hint={`Rythme mensuel moyen (3 derniers mois): ${formatEUR(forecast.monthlyRunRateCents)}`}
         tone={forecast.projectedYearEndCents > forecast.totalBudgetCents ? "warning" : "default"}

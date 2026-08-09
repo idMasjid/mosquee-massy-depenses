@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/rbac";
 import { NewRubriqueDialog } from "@/components/admin/new-rubrique-dialog";
 import { SortableRubriquesList } from "@/components/admin/sortable-rubriques-list";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 
 export default async function AdminRubriquesPage() {
   await requireRole(["ADMIN", "IT"]);
@@ -27,7 +28,7 @@ export default async function AdminRubriquesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <StickyPageHeader className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Catégories</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -35,8 +36,10 @@ export default async function AdminRubriquesPage() {
             la création d&apos;une ligne budgétaire ou d&apos;une dépense.
           </p>
         </div>
-        <NewRubriqueDialog projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
-      </div>
+        <NewRubriqueDialog
+          projects={[...projects].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((p) => ({ id: p.id, name: p.name }))}
+        />
+      </StickyPageHeader>
 
       {projects.length === 0 && <p className="text-sm text-muted-foreground">Aucun projet pour l&apos;instant.</p>}
 

@@ -25,9 +25,10 @@ export function SelectWithCreate({
   createLabel,
   dialogTitle,
   disabled,
+  valueKey = "name",
 }: {
   value: string;
-  onValueChange: (name: string) => void;
+  onValueChange: (value: string) => void;
   options: SelectWithCreateOption[];
   onOptionCreated: (option: SelectWithCreateOption) => void;
   onCreate: (name: string) => Promise<CreateOptionResult>;
@@ -35,6 +36,10 @@ export function SelectWithCreate({
   createLabel: string;
   dialogTitle: string;
   disabled?: boolean;
+  // Most closed lists (Fournisseur, Type paiement…) store the option's name
+  // directly on Expense — but Projet stores a real foreign key (projectId).
+  // "id" makes the Select operate on option ids instead of names.
+  valueKey?: "name" | "id";
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const {
@@ -43,6 +48,8 @@ export function SelectWithCreate({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<{ name: string }>({ defaultValues: { name: "" } });
+
+  const optionValue = (o: SelectWithCreateOption) => (valueKey === "id" ? o.id : o.name);
 
   const handleSelect = (v: string | null) => {
     if (v === CREATE_SENTINEL) {
@@ -59,7 +66,7 @@ export function SelectWithCreate({
       return;
     }
     onOptionCreated({ id: result.id, name: result.name });
-    onValueChange(result.name);
+    onValueChange(valueKey === "id" ? result.id : result.name);
     reset({ name: "" });
     setDialogOpen(false);
   };
@@ -67,7 +74,7 @@ export function SelectWithCreate({
   return (
     <>
       <Select
-        items={{ [CREATE_SENTINEL]: createLabel, ...Object.fromEntries(options.map((o) => [o.name, o.name])) }}
+        items={{ [CREATE_SENTINEL]: createLabel, ...Object.fromEntries(options.map((o) => [optionValue(o), o.name])) }}
         value={value}
         onValueChange={handleSelect}
         disabled={disabled}
@@ -82,7 +89,7 @@ export function SelectWithCreate({
           </SelectItem>
           <SelectSeparator />
           {options.map((o) => (
-            <SelectItem key={o.id} value={o.name}>
+            <SelectItem key={o.id} value={optionValue(o)}>
               {o.name}
             </SelectItem>
           ))}

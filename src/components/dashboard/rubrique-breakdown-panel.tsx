@@ -9,6 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DivergingBarList, type DivergingBarDatum } from "@/components/dashboard/diverging-bar-list";
 import { SortableGroup, useSortableItem, DragHandle } from "@/components/ui/sortable";
 import { reorderRubriquesDashboard } from "@/lib/actions/rubrique-actions";
+import { consumptionPct } from "@/lib/consumption";
+import { formatEUR } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 export type ProjectRubriqueBudgetDatum = {
   id: string;
@@ -249,6 +252,18 @@ function RubriqueGroup({
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(g.projectId);
 
+  const totals = g.rows.reduce(
+    (acc, r) => ({
+      budget: acc.budget + r.budget,
+      realise: acc.realise + r.realise,
+      engage: acc.engage + r.engage,
+      restant: acc.restant + r.restant,
+    }),
+    { budget: 0, realise: 0, engage: 0, restant: 0 },
+  );
+  const good = totals.restant >= 0;
+  const pct = consumptionPct(totals.budget, totals.realise + totals.engage, totals.restant);
+
   return (
     <details
       ref={setNodeRef}
@@ -257,16 +272,47 @@ function RubriqueGroup({
       onToggle={(e) => onToggle((e.target as HTMLDetailsElement).open)}
       className="group rounded-xl border bg-card"
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
-        {canDrag && (
-          <span onClick={(e) => e.preventDefault()}>
-            <DragHandle dragHandleProps={dragHandleProps} />
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-2">
+          {canDrag && (
+            <span onClick={(e) => e.preventDefault()}>
+              <DragHandle dragHandleProps={dragHandleProps} />
+            </span>
+          )}
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+          {g.projectName}
+          <span className="text-xs font-normal text-muted-foreground">
+            {g.rows.length} catégorie{g.rows.length > 1 ? "s" : ""}
           </span>
-        )}
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
-        {g.projectName}
-        <span className="text-xs font-normal text-muted-foreground">
-          {g.rows.length} catégorie{g.rows.length > 1 ? "s" : ""}
+        </span>
+        <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-normal text-muted-foreground">
+          <span>
+            Budgétisé <span className="font-medium tabular-nums text-foreground">{formatEUR(totals.budget)}</span>
+          </span>
+          <span>
+            Réalisé <span className="font-medium tabular-nums text-foreground">{formatEUR(totals.realise)}</span>
+          </span>
+          <span>
+            Engagé <span className="font-medium tabular-nums text-foreground">{formatEUR(totals.engage)}</span>
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "shrink-0 text-xs tabular-nums",
+              good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+            )}
+          >
+            {pct}%
+          </span>
+          <span
+            className={cn(
+              "shrink-0 text-xs font-semibold tabular-nums",
+              good ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+            )}
+          >
+            {formatEUR(totals.restant)}
+          </span>
         </span>
       </summary>
       <div className="border-t px-4">

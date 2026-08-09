@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/rbac";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NewUserDialog } from "@/components/admin/new-user-dialog";
 import { EditUserDialog } from "@/components/admin/edit-user-dialog";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 
 export default async function AdminUsersPage() {
@@ -12,7 +13,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <StickyPageHeader className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Utilisateurs</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -20,7 +21,7 @@ export default async function AdminUsersPage() {
           </p>
         </div>
         <NewUserDialog />
-      </div>
+      </StickyPageHeader>
 
       <div className="overflow-x-auto rounded-xl border">
         <Table>

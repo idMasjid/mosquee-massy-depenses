@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/rbac";
 import { ImportExpensesForm } from "@/components/expenses/import-expenses-form";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 
 export default async function ImportExpensesPage() {
   await requireRole(["ADMIN", "IT"]);
@@ -30,8 +31,7 @@ export default async function ImportExpensesPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Projets et catégories valides</h2>
+      <CollapsibleCard title="Projets et catégories valides">
         {projects.length === 0 ? (
           <p className="text-sm">Aucun projet actif pour le moment.</p>
         ) : (
@@ -49,10 +49,9 @@ export default async function ImportExpensesPage() {
             ))}
           </ul>
         )}
-      </div>
+      </CollapsibleCard>
 
-      <div className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Fournisseurs, types paiement et types d&apos;achat valides</h2>
+      <CollapsibleCard title="Fournisseurs, types paiement et types d'achat valides">
         <div className="flex flex-col gap-1.5 text-sm">
           <p>
             <span className="font-medium">Fournisseurs</span>
@@ -76,7 +75,7 @@ export default async function ImportExpensesPage() {
             </span>
           </p>
         </div>
-      </div>
+      </CollapsibleCard>
 
       <ImportExpensesForm />
     </div>
