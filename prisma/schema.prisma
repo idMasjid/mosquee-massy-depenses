@@ -67,6 +67,28 @@ model AllowedRubrique {
   @@unique([projectId, rubrique])
 }
 
+// Global closed lists (not project-scoped) for Fournisseur / Type paiement /
+// Type achat. Like AllowedRubrique, these are not a foreign key from Expense
+// — Expense keeps plain snapshot string columns, validated against these
+// tables at input time (form + import), so historical data never breaks.
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model PaymentType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model PurchaseType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
 // One row per (Projet, Rubrique, Titre produit) budget line, matching the sheet's budget tab grain
 model BudgetLine {
   id                    String   @id @default(cuid())
@@ -88,7 +110,7 @@ model BudgetLine {
   @@unique([projectId, rubrique, productTitle])
 }
 
-// status: "A_VENIR" | "EN_ATTENTE" | "VALIDE" | "REALISE" | "REJETE" | "ANNULE" (see src/lib/constants.ts)
+// status: "IMPORT_A_VALIDER" | "A_VENIR" | "EN_ATTENTE" | "VALIDE" | "REALISE" | "REJETE" | "ANNULE" (see src/lib/constants.ts)
 model Expense {
   id String @id @default(cuid())
 

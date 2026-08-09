@@ -9,6 +9,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const EXPENSE_STATUSES = [
+  "IMPORT_A_VALIDER",
   "A_VENIR",
   "EN_ATTENTE",
   "VALIDE",
@@ -19,6 +20,7 @@ export const EXPENSE_STATUSES = [
 export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number];
 
 export const STATUS_LABELS: Record<ExpenseStatus, string> = {
+  IMPORT_A_VALIDER: "Import à valider",
   A_VENIR: "À venir",
   EN_ATTENTE: "En attente",
   VALIDE: "Validé",
@@ -28,6 +30,7 @@ export const STATUS_LABELS: Record<ExpenseStatus, string> = {
 };
 
 export const STATUS_COLORS: Record<ExpenseStatus, string> = {
+  IMPORT_A_VALIDER: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
   A_VENIR: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
   EN_ATTENTE: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
   VALIDE: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",

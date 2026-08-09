@@ -10,6 +10,10 @@ type Transition = {
 // Admins can always override into any state (logged as an "override" event) —
 // everything below is the non-admin rule set.
 const TRANSITIONS: Transition[] = [
+  { from: "IMPORT_A_VALIDER", to: "A_VENIR", roles: ["IT"] },
+  { from: "IMPORT_A_VALIDER", to: "EN_ATTENTE", roles: ["IT"] },
+  { from: "IMPORT_A_VALIDER", to: "REALISE", roles: ["IT"] },
+  { from: "IMPORT_A_VALIDER", to: "ANNULE", roles: ["IT"] },
   { from: "A_VENIR", to: "EN_ATTENTE", roles: ["IT"] },
   { from: "A_VENIR", to: "ANNULE", roles: ["IT"] },
   { from: "EN_ATTENTE", to: "VALIDE", roles: ["BUREAU"] },

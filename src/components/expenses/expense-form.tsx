@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { FileScan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/form/field";
+import { SelectWithCreate, type SelectWithCreateOption } from "@/components/expenses/select-with-create";
 import { expenseFormSchema, type ExpenseFormValues } from "@/lib/validations/expense";
 import { createExpense, updateExpense } from "@/lib/actions/expense-actions";
+import { extractInvoiceData } from "@/lib/actions/invoice-actions";
+import { createSupplier } from "@/lib/actions/supplier-actions";
+import { createPaymentType } from "@/lib/actions/payment-type-actions";
+import { createPurchaseType } from "@/lib/actions/purchase-type-actions";
 import { STATUS_LABELS, type ExpenseStatus } from "@/lib/constants";
 import { numeric } from "@/lib/form-utils";
 
@@ -29,15 +35,29 @@ export type BudgetLineOption = {
   budgetedAmountHTCents: number;
 };
 
+// Editing an old expense whose supplier/payment/purchase type predates these
+// closed lists (or was typed freely before this feature) must still show its
+// current value as selected, even if it's not in the canonical table.
+function withCurrentValue(options: SelectWithCreateOption[], currentValue: string | undefined): SelectWithCreateOption[] {
+  if (!currentValue || options.some((o) => o.name === currentValue)) return options;
+  return [...options, { id: `legacy:${currentValue}`, name: currentValue }];
+}
+
 export function ExpenseForm({
   projects,
   budgetLines,
+  suppliers,
+  paymentTypes,
+  purchaseTypes,
   allowedStatuses,
   expenseId,
   defaultValues,
 }: {
   projects: { id: string; name: string }[];
   budgetLines: BudgetLineOption[];
+  suppliers: SelectWithCreateOption[];
+  paymentTypes: SelectWithCreateOption[];
+  purchaseTypes: SelectWithCreateOption[];
   allowedStatuses: ExpenseStatus[];
   expenseId?: string;
   defaultValues?: Partial<ExpenseFormValues>;
@@ -68,6 +88,82 @@ export function ExpenseForm({
   });
 
   const projectId = watch("projectId");
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+  const [invoiceFileName, setInvoiceFileName] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const [supplierOptions, setSupplierOptions] = useState(() => withCurrentValue(suppliers, defaultValues?.supplierName));
+  const [paymentTypeOptions, setPaymentTypeOptions] = useState(() => withCurrentValue(paymentTypes, defaultValues?.paymentType));
+  const [purchaseTypeOptions, setPurchaseTypeOptions] = useState(() => withCurrentValue(purchaseTypes, defaultValues?.purchaseType));
+
+  const handleCreateSupplier = async (name: string) => {
+    const result = await createSupplier(name);
+    return result.success ? { success: true as const, id: result.supplier.id, name: result.supplier.name } : result;
+  };
+  const handleCreatePaymentType = async (name: string) => {
+    const result = await createPaymentType(name);
+    return result.success ? { success: true as const, id: result.paymentType.id, name: result.paymentType.name } : result;
+  };
+  const handleCreatePurchaseType = async (name: string) => {
+    const result = await createPurchaseType(name);
+    return result.success ? { success: true as const, id: result.purchaseType.id, name: result.purchaseType.name } : result;
+  };
+
+  // Matches free-text AI-extracted values against the closed lists (accent/case-insensitive
+  // isn't needed here, only trim+case, since these are short catalog-style names) — an
+  // unmatched guess is left blank rather than silently breaking the closed list.
+  const findOptionMatch = (options: SelectWithCreateOption[], raw: string | null) => {
+    if (!raw) return null;
+    const normalized = raw.trim().toLowerCase();
+    return options.find((o) => o.name.trim().toLowerCase() === normalized) ?? null;
+  };
+
+  const handleAnalyzeInvoice = async () => {
+    const file = invoiceInputRef.current?.files?.[0];
+    if (!file) {
+      toast.error("Choisissez d'abord un fichier.");
+      return;
+    }
+    setAnalyzing(true);
+    const formData = new FormData();
+    formData.set("file", file);
+    const result = await extractInvoiceData(formData);
+    setAnalyzing(false);
+    if (!result.success) {
+      toast.error(result.error);
+      return;
+    }
+    const d = result.data;
+    const unmatched: string[] = [];
+
+    const supplierMatch = findOptionMatch(supplierOptions, d.supplierName);
+    if (supplierMatch) setValue("supplierName", supplierMatch.name);
+    else if (d.supplierName) unmatched.push(`fournisseur « ${d.supplierName} »`);
+
+    if (d.productTitle) setValue("productTitle", d.productTitle);
+    if (d.orderDate) setValue("orderDate", d.orderDate);
+    if (d.invoiceDate) setValue("invoiceDate", d.invoiceDate);
+    if (d.orderNumber) setValue("orderNumber", d.orderNumber);
+    if (d.invoiceNumber) setValue("invoiceNumber", d.invoiceNumber);
+    if (d.unitPriceHT != null) setValue("unitPriceHT", d.unitPriceHT);
+    if (d.quantity != null) setValue("quantity", d.quantity);
+    if (d.deliveryFee != null) setValue("deliveryFee", d.deliveryFee);
+    if (d.importFee != null) setValue("importFee", d.importFee);
+    if (d.discount != null) setValue("discount", d.discount);
+    if (d.totalHT != null) setValue("totalHT", d.totalHT);
+    if (d.vatRate != null) setValue("vatRate", d.vatRate);
+    if (d.vatAmount != null) setValue("vatAmount", d.vatAmount);
+    if (d.totalTTC != null) setValue("totalTTC", d.totalTTC);
+    if (d.paymentReference) setValue("paymentReference", d.paymentReference);
+
+    const paymentTypeMatch = findOptionMatch(paymentTypeOptions, d.paymentType);
+    if (paymentTypeMatch) setValue("paymentType", paymentTypeMatch.name);
+    else if (d.paymentType) unmatched.push(`type de paiement « ${d.paymentType} »`);
+
+    const suffix =
+      unmatched.length > 0 ? ` Non reconnus dans les listes (à sélectionner manuellement) : ${unmatched.join(", ")}.` : "";
+    toast.success(`Champs pré-remplis depuis la facture — vérifiez avant d'enregistrer.${suffix}`);
+  };
 
   const availableLines = useMemo(
     () => budgetLines.filter((l) => l.projectId === projectId),
@@ -83,6 +179,28 @@ export function ExpenseForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-8">
+      {!expenseId && (
+        <section className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4">
+          <input
+            ref={invoiceInputRef}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => setInvoiceFileName(e.target.files?.[0]?.name ?? null)}
+          />
+          <Button type="button" variant="outline" size="sm" disabled={analyzing} onClick={() => invoiceInputRef.current?.click()}>
+            <FileScan className="size-4" />
+            Choisir une facture
+          </Button>
+          <span className="flex-1 truncate text-sm text-muted-foreground">
+            {invoiceFileName ?? "Optionnel : pré-remplir le formulaire depuis une facture (PDF ou image)."}
+          </span>
+          <Button type="button" size="sm" variant="secondary" disabled={analyzing || !invoiceFileName} onClick={handleAnalyzeInvoice}>
+            {analyzing ? "Analyse en cours…" : "Analyser"}
+          </Button>
+        </section>
+      )}
+
       {!expenseId && (
         <section className="grid gap-4 sm:grid-cols-2">
           <Field label="Statut initial" required error={errors.status?.message}>
@@ -121,8 +239,23 @@ export function ExpenseForm({
           <Field label="Titre du produit / prestation" htmlFor="productTitle" required error={errors.productTitle?.message}>
             <Input id="productTitle" {...register("productTitle")} />
           </Field>
-          <Field label="Fournisseur" htmlFor="supplierName" required error={errors.supplierName?.message}>
-            <Input id="supplierName" {...register("supplierName")} />
+          <Field label="Fournisseur" required error={errors.supplierName?.message}>
+            <Controller
+              control={control}
+              name="supplierName"
+              render={({ field }) => (
+                <SelectWithCreate
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  options={supplierOptions}
+                  onOptionCreated={(o) => setSupplierOptions((prev) => [...prev, o])}
+                  onCreate={handleCreateSupplier}
+                  placeholder="Sélectionner un fournisseur"
+                  createLabel="Ajouter un fournisseur"
+                  dialogTitle="Nouveau fournisseur"
+                />
+              )}
+            />
           </Field>
 
           <Field label="Projet" required error={errors.projectId?.message}>
@@ -248,14 +381,44 @@ export function ExpenseForm({
       <section>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Paiement &amp; références</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Type de paiement" htmlFor="paymentType">
-            <Input id="paymentType" {...register("paymentType")} />
+          <Field label="Type de paiement" error={errors.paymentType?.message}>
+            <Controller
+              control={control}
+              name="paymentType"
+              render={({ field }) => (
+                <SelectWithCreate
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  options={paymentTypeOptions}
+                  onOptionCreated={(o) => setPaymentTypeOptions((prev) => [...prev, o])}
+                  onCreate={handleCreatePaymentType}
+                  placeholder="Sélectionner un type de paiement"
+                  createLabel="Ajouter un type de paiement"
+                  dialogTitle="Nouveau type de paiement"
+                />
+              )}
+            />
           </Field>
           <Field label="Référence de paiement" htmlFor="paymentReference">
             <Input id="paymentReference" {...register("paymentReference")} />
           </Field>
-          <Field label="Type d'achat (Internet, physique…)" htmlFor="purchaseType">
-            <Input id="purchaseType" {...register("purchaseType")} />
+          <Field label="Type d'achat (Internet, physique…)" error={errors.purchaseType?.message}>
+            <Controller
+              control={control}
+              name="purchaseType"
+              render={({ field }) => (
+                <SelectWithCreate
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  options={purchaseTypeOptions}
+                  onOptionCreated={(o) => setPurchaseTypeOptions((prev) => [...prev, o])}
+                  onCreate={handleCreatePurchaseType}
+                  placeholder="Sélectionner un type d'achat"
+                  createLabel="Ajouter un type d'achat"
+                  dialogTitle="Nouveau type d'achat"
+                />
+              )}
+            />
           </Field>
           <Field label="N° bon de commande / devis" htmlFor="orderNumber">
             <Input id="orderNumber" {...register("orderNumber")} />

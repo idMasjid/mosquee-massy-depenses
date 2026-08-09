@@ -13,12 +13,15 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   const { id } = await params;
   const session = await requireRole(["ADMIN", "IT"]);
 
-  const [expense, projects, budgetLines] = await Promise.all([
+  const [expense, projects, budgetLines, suppliers, paymentTypes, purchaseTypes] = await Promise.all([
     prisma.expense.findUnique({ where: { id } }),
     // Not filtered to isActive: an expense may belong to a project/line that's since
     // been archived, and it must still show up as the current selection when editing.
     prisma.project.findMany({ orderBy: { name: "asc" } }),
     prisma.budgetLine.findMany(),
+    prisma.supplier.findMany({ orderBy: { name: "asc" } }),
+    prisma.paymentType.findMany({ orderBy: { name: "asc" } }),
+    prisma.purchaseType.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   if (!expense) notFound();
@@ -41,6 +44,9 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
           productTitle: l.productTitle,
           budgetedAmountHTCents: l.budgetedAmountHTCents,
         }))}
+        suppliers={suppliers}
+        paymentTypes={paymentTypes}
+        purchaseTypes={purchaseTypes}
         defaultValues={{
           status: expense.status as ExpenseStatus,
           entryDate: dateInputValue(expense.entryDate) ?? "",

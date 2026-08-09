@@ -7,9 +7,12 @@ import type { ExpenseStatus } from "@/lib/constants";
 export default async function NewExpensePage() {
   const session = await requireRole(["ADMIN", "IT"]);
 
-  const [projects, budgetLines] = await Promise.all([
+  const [projects, budgetLines, suppliers, paymentTypes, purchaseTypes] = await Promise.all([
     prisma.project.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.budgetLine.findMany({ where: { isActive: true } }),
+    prisma.supplier.findMany({ orderBy: { name: "asc" } }),
+    prisma.paymentType.findMany({ orderBy: { name: "asc" } }),
+    prisma.purchaseType.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const allowedStatuses: ExpenseStatus[] =
@@ -29,6 +32,9 @@ export default async function NewExpensePage() {
           productTitle: l.productTitle,
           budgetedAmountHTCents: l.budgetedAmountHTCents,
         }))}
+        suppliers={suppliers}
+        paymentTypes={paymentTypes}
+        purchaseTypes={purchaseTypes}
         allowedStatuses={allowedStatuses}
       />
     </div>

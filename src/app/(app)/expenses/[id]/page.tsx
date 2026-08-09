@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/expenses/status-badge";
 import { StatusActions } from "@/components/expenses/status-actions";
 import { StatusTimeline } from "@/components/expenses/status-timeline";
 import { AttachmentUploader } from "@/components/expenses/attachment-uploader";
+import { DeleteExpenseButton } from "@/components/expenses/delete-expense-button";
 import type { ExpenseStatus } from "@/lib/constants";
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
@@ -45,7 +46,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
 
   const canEdit =
     session.user.role === "ADMIN" ||
-    (session.user.role === "IT" && ["A_VENIR", "EN_ATTENTE", "REJETE"].includes(expense.status));
+    (session.user.role === "IT" && ["IMPORT_A_VALIDER", "A_VENIR", "EN_ATTENTE", "REJETE"].includes(expense.status));
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -59,12 +60,15 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
             {expense.project.name} · {expense.rubriqueLabel}
           </p>
         </div>
-        {canEdit && (
-          <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/expenses/${expense.id}/edit`} />}>
-            <Pencil className="size-4" />
-            Modifier
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canEdit && (
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/expenses/${expense.id}/edit`} />}>
+              <Pencil className="size-4" />
+              Modifier
+            </Button>
+          )}
+          {session.user.role === "ADMIN" && <DeleteExpenseButton expenseId={expense.id} />}
+        </div>
       </div>
 
       <StatusActions expenseId={expense.id} status={expense.status as ExpenseStatus} role={session.user.role} />

@@ -1,9 +1,13 @@
+import Link from "next/link";
+import { Inbox } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getBudgetOverview, getMonthlySpend, getForecastSummary } from "@/lib/aggregations";
 import { formatEUR, fromCents } from "@/lib/money";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { DashboardProjectPanels } from "@/components/dashboard/dashboard-project-panels";
 import { SpendTimeseriesChart, type SpendPoint } from "@/components/dashboard/spend-timeseries-chart";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 function buildSpendSeries(monthly: { month: string; realiseCents: number }[], runRateCents: number): SpendPoint[] {
   const points: SpendPoint[] = [];
@@ -35,13 +39,20 @@ function buildSpendSeries(monthly: { month: string; realiseCents: number }[], ru
 }
 
 export default async function DashboardPage() {
-  const [overview, monthly, forecast, dashboardProjects, allowedRubriques] = await Promise.all([
+  const [overview, monthly, forecast, dashboardProjects, allowedRubriques, pendingImports] = await Promise.all([
     getBudgetOverview(),
     getMonthlySpend(),
     getForecastSummary(),
     prisma.project.findMany({ orderBy: [{ dashboardOrder: "asc" }, { name: "asc" }], select: { id: true } }),
     prisma.allowedRubrique.findMany({ select: { id: true, projectId: true, rubrique: true, dashboardOrder: true } }),
+    prisma.expense.aggregate({
+      where: { status: "IMPORT_A_VALIDER" },
+      _count: true,
+      _sum: { totalTTCCents: true },
+    }),
   ]);
+  const pendingImportsCount = pendingImports._count;
+  const pendingImportsTotalCents = pendingImports._sum.totalTTCCents ?? 0;
   // Independent from the Projets page's own order — reordering "Budget par
   // projet" below only moves things on this dashboard.
   const dashboardRank = new Map(dashboardProjects.map((p, i) => [p.id, i]));
@@ -129,6 +140,36 @@ export default async function DashboardPage() {
         hint={`Rythme mensuel moyen (3 derniers mois): ${formatEUR(forecast.monthlyRunRateCents)}`}
         tone={forecast.projectedYearEndCents > forecast.totalBudgetCents ? "warning" : "default"}
       />
+
+      {pendingImportsCount > 0 && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4",
+            "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <Inbox className="size-5 shrink-0 text-violet-700 dark:text-violet-300" />
+            <div>
+              <p className="text-sm font-medium text-violet-900 dark:text-violet-200">
+                {pendingImportsCount} import{pendingImportsCount > 1 ? "s" : ""} à valider (
+                {formatEUR(pendingImportsTotalCents)})
+              </p>
+              <p className="text-xs text-violet-700/80 dark:text-violet-300/80">
+                Non comptabilisés dans les totaux ci-dessus tant qu&apos;ils n&apos;ont pas été relus.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/expenses?status=IMPORT_A_VALIDER" />}
+          >
+            Vérifier
+          </Button>
+        </div>
+      )}
 
       <DashboardProjectPanels
         projectBudgets={byProjectSorted.map(([id, p]) => ({ id, label: p.projectName, ...p }))}

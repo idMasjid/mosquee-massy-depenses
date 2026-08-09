@@ -10,8 +10,9 @@ import {
   flexRender,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/expenses/status-badge";
@@ -53,9 +54,17 @@ const columns = [
   }),
 ];
 
-export function ExpensesExplorer({ expenses, projectNames }: { expenses: ExpenseRow[]; projectNames: string[] }) {
+export function ExpensesExplorer({
+  expenses,
+  projectNames,
+  initialStatus,
+}: {
+  expenses: ExpenseRow[];
+  projectNames: string[];
+  initialStatus?: ExpenseStatus;
+}) {
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>(ALL);
+  const [status, setStatus] = useState<string>(initialStatus ?? ALL);
   const [project, setProject] = useState<string>(ALL);
   const [sorting, setSorting] = useState<SortingState>([{ id: "entryDate", desc: true }]);
 
@@ -68,6 +77,15 @@ export function ExpensesExplorer({ expenses, projectNames }: { expenses: Expense
       return true;
     });
   }, [expenses, search, status, project]);
+
+  const exportUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (status !== ALL) params.set("status", status);
+    if (project !== ALL) params.set("project", project);
+    if (search.trim()) params.set("search", search.trim());
+    const query = params.toString();
+    return `/api/expenses/export${query ? `?${query}` : ""}`;
+  }, [search, status, project]);
 
   const table = useReactTable({
     data: filtered,
@@ -121,6 +139,10 @@ export function ExpensesExplorer({ expenses, projectNames }: { expenses: Expense
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" nativeButton={false} render={<a href={exportUrl} />}>
+          <Download className="size-4" />
+          Exporter
+        </Button>
       </div>
 
       <p className="text-sm text-muted-foreground">

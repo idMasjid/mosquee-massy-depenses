@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { ExpensesExplorer, type ExpenseRow } from "@/components/expenses/expenses-explorer";
-import type { ExpenseStatus } from "@/lib/constants";
+import { EXPENSE_STATUSES, type ExpenseStatus } from "@/lib/constants";
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const session = await requireSession();
+  const { status } = await searchParams;
+  const initialStatus = EXPENSE_STATUSES.find((s) => s === status);
 
   const [expenses, projects] = await Promise.all([
     prisma.expense.findMany({
@@ -35,13 +41,19 @@ export default async function ExpensesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Dépenses</h1>
         {canCreate && (
-          <Button size="sm" nativeButton={false} render={<Link href="/expenses/new" />}>
-            <Plus className="size-4" />
-            Nouvelle dépense
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/expenses/import" />}>
+              <Upload className="size-4" />
+              Importer
+            </Button>
+            <Button size="sm" nativeButton={false} render={<Link href="/expenses/new" />}>
+              <Plus className="size-4" />
+              Nouvelle dépense
+            </Button>
+          </div>
         )}
       </div>
-      <ExpensesExplorer expenses={rows} projectNames={projects.map((p) => p.name)} />
+      <ExpensesExplorer expenses={rows} projectNames={projects.map((p) => p.name)} initialStatus={initialStatus} />
     </div>
   );
 }

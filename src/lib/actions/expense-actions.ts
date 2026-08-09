@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/rbac";
+import { requireSession, requireRole } from "@/lib/rbac";
+import { storage } from "@/lib/storage";
 import { toCents } from "@/lib/money";
 import { canCreateWithStatus, canTransition, transitionRequiresNote } from "@/lib/workflow";
 import { expenseFormSchema, transitionSchema, type ExpenseFormValues } from "@/lib/validations/expense";
@@ -93,7 +94,7 @@ export async function updateExpense(id: string, raw: unknown): Promise<ActionRes
 
   const canEdit =
     session.user.role === "ADMIN" ||
-    (session.user.role === "IT" && ["A_VENIR", "EN_ATTENTE", "REJETE"].includes(expense.status));
+    (session.user.role === "IT" && ["IMPORT_A_VALIDER", "A_VENIR", "EN_ATTENTE", "REJETE"].includes(expense.status));
   if (!canEdit) {
     return { success: false, error: "Cette dépense ne peut plus être modifiée." };
   }
@@ -187,4 +188,21 @@ export async function transitionExpense(raw: unknown): Promise<ActionResult> {
   revalidatePath(`/expenses/${expenseId}`);
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+export async function deleteExpense(id: string): Promise<ActionResult> {
+  await requireRole(["ADMIN"]);
+
+  const expense = await prisma.expense.findUnique({
+    where: { id },
+    include: { attachments: true },
+  });
+  if (!expense) return { success: false, error: "Dépense introuvable." };
+
+  await prisma.expense.delete({ where: { id } });
+  await Promise.all(expense.attachments.map((a) => storage.delete(a.storedPath).catch(() => {})));
+
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  redirect("/expenses");
 }
