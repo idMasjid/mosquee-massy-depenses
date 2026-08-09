@@ -14,7 +14,6 @@ export default async function ProjectsPage({
 }) {
   const session = await requireSession();
   const canManage = session.user.role === "ADMIN" || session.user.role === "IT";
-  const isAdmin = session.user.role === "ADMIN";
 
   const { exercices } = await searchParams;
   const selection = parseExerciceParam(exercices);
@@ -61,7 +60,6 @@ export default async function ProjectsPage({
       <SortableProjectsList
         projectsWithLines={projectsWithLines}
         canManage={canManage}
-        isAdmin={isAdmin}
         allowedRubriques={allowedRubriques.map((r) => ({ id: r.id, projectId: r.projectId, rubrique: r.rubrique }))}
       />
     </div>

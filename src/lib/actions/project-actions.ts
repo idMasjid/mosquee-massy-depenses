@@ -219,7 +219,7 @@ export async function setProjectActive(id: string, isActive: boolean): Promise<A
 }
 
 export async function deleteBudgetLine(id: string): Promise<ActionResult> {
-  await requireRole(["ADMIN"]);
+  await requireRole(["ADMIN", "IT"]);
   const expenseCount = await prisma.expense.count({ where: { budgetLineId: id } });
   if (expenseCount > 0) {
     return {

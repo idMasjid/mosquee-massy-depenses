@@ -23,12 +23,10 @@ type LineWithConsumption = BudgetLineTotal & { good: boolean; pct: number };
 export function SortableProjectsList({
   projectsWithLines,
   canManage,
-  isAdmin,
   allowedRubriques,
 }: {
   projectsWithLines: { project: ProjectSummary; lines: BudgetLineTotal[] }[];
   canManage: boolean;
-  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const [items, setItems] = useState(projectsWithLines);
@@ -68,7 +66,6 @@ export function SortableProjectsList({
             project={project}
             lines={lines}
             canManage={canManage}
-            isAdmin={isAdmin}
             allowedRubriques={allowedRubriques}
           />
         ))}
@@ -81,13 +78,11 @@ function ProjectCard({
   project,
   lines,
   canManage,
-  isAdmin,
   allowedRubriques,
 }: {
   project: ProjectSummary;
   lines: BudgetLineTotal[];
   canManage: boolean;
-  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(project.id);
@@ -197,7 +192,6 @@ function ProjectCard({
                     key={line.budgetLineId}
                     line={line}
                     canManage={canManage}
-                    isAdmin={isAdmin}
                     allowedRubriques={allowedRubriques}
                   />
                 ))}
@@ -212,7 +206,6 @@ function ProjectCard({
                 key={line.budgetLineId}
                 line={line}
                 canManage={canManage}
-                isAdmin={isAdmin}
                 allowedRubriques={allowedRubriques}
               />
             ))}
@@ -226,12 +219,10 @@ function ProjectCard({
 function BudgetLineRow({
   line,
   canManage,
-  isAdmin,
   allowedRubriques,
 }: {
   line: LineWithConsumption;
   canManage: boolean;
-  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(line.budgetLineId);
@@ -291,7 +282,7 @@ function BudgetLineRow({
               allowedRubriques={allowedRubriques}
             />
             <ArchiveBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} isActive={line.isActive} />
-            {isAdmin && <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />}
+            <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />
           </div>
         </TableCell>
       )}
@@ -302,12 +293,10 @@ function BudgetLineRow({
 function BudgetLineCard({
   line,
   canManage,
-  isAdmin,
   allowedRubriques,
 }: {
   line: LineWithConsumption;
   canManage: boolean;
-  isAdmin: boolean;
   allowedRubriques: AllowedRubriqueSummary[];
 }) {
   const { setNodeRef, style, dragHandleProps } = useSortableItem(line.budgetLineId);
@@ -342,7 +331,7 @@ function BudgetLineCard({
               allowedRubriques={allowedRubriques}
             />
             <ArchiveBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} isActive={line.isActive} />
-            {isAdmin && <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />}
+            <DeleteBudgetLineButton id={line.budgetLineId} label={line.productTitle ?? line.rubrique} />
           </div>
         )}
       </div>
