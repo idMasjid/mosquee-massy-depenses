@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field } from "@/components/form/field";
 import { updateAllowedRubrique } from "@/lib/actions/rubrique-actions";
+import { rubriqueRenameFormSchema, type RubriqueRenameFormValues } from "@/lib/validations/rubrique";
 
 export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; rubrique: string; lineCount: number }) {
   const [open, setOpen] = useState(false);
@@ -17,9 +19,12 @@ export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; ru
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<{ rubrique: string }>({ defaultValues: { rubrique } });
+  } = useForm<RubriqueRenameFormValues>({
+    resolver: zodResolver(rubriqueRenameFormSchema),
+    defaultValues: { rubrique },
+  });
 
-  const onSubmit = async (values: { rubrique: string }) => {
+  const onSubmit = async (values: RubriqueRenameFormValues) => {
     const result = await updateAllowedRubrique(id, values.rubrique);
     if (result.success) {
       toast.success("Catégorie renommée.");
@@ -51,7 +56,7 @@ export function EditRubriqueDialog({ id, rubrique, lineCount }: { id: string; ru
             required
             error={errors.rubrique?.message}
           >
-            <Input id="rubrique" {...register("rubrique", { required: "La catégorie est requise." })} />
+            <Input id="rubrique" {...register("rubrique")} />
           </Field>
           {lineCount > 0 && (
             <p className="text-xs text-muted-foreground">

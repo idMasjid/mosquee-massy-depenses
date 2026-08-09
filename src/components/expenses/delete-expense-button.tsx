@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,15 +16,18 @@ import { deleteExpense } from "@/lib/actions/expense-actions";
 
 export function DeleteExpenseButton({ expenseId }: { expenseId: string }) {
   const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [pending, startTransition] = useTransition();
 
-  const confirm = async () => {
-    setPending(true);
-    const result = await deleteExpense(expenseId);
-    setPending(false);
-    if (!result.success) {
-      toast.error(result.error);
-    }
+  const confirm = () => {
+    startTransition(async () => {
+      // On success, deleteExpense redirects server-side to /expenses — this
+      // component unmounts before ever seeing a resolved result, so a success
+      // toast here would never actually render; the navigation is the confirmation.
+      const result = await deleteExpense(expenseId);
+      if (!result.success) {
+        toast.error(result.error);
+      }
+    });
   };
 
   return (

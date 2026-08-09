@@ -5,3 +5,6 @@ export const allowedRubriqueFormSchema = z.object({
   rubrique: z.string().min(1, { error: "La catégorie est requise." }),
 });
 export type AllowedRubriqueFormValues = z.infer<typeof allowedRubriqueFormSchema>;
+
+export const rubriqueRenameFormSchema = allowedRubriqueFormSchema.pick({ rubrique: true });
+export type RubriqueRenameFormValues = z.infer<typeof rubriqueRenameFormSchema>;

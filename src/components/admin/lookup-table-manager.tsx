@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Field } from "@/components/form/field";
+import { lookupNameFormSchema, type LookupNameFormValues } from "@/lib/validations/lookup";
 
 export type LookupItem = { id: string; name: string; usageCount: number };
 export type LookupActionResult = { success: true } | { success: false; error: string };
@@ -93,9 +95,9 @@ function NewLookupItemDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<{ name: string }>({ defaultValues: { name: "" } });
+  } = useForm<LookupNameFormValues>({ resolver: zodResolver(lookupNameFormSchema), defaultValues: { name: "" } });
 
-  const onSubmit = async (values: { name: string }) => {
+  const onSubmit = async (values: LookupNameFormValues) => {
     const result = await createAction(values.name);
     if (result.success) {
       toast.success(`${entityLabelCapitalized} ajouté.`);
@@ -118,7 +120,7 @@ function NewLookupItemDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Field label="Nom" htmlFor="name" required error={errors.name?.message}>
-            <Input id="name" autoFocus {...register("name", { required: "Le nom est requis." })} />
+            <Input id="name" autoFocus {...register("name")} />
           </Field>
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>Annuler</DialogClose>
@@ -147,9 +149,12 @@ function EditLookupItemDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<{ name: string }>({ defaultValues: { name: item.name } });
+  } = useForm<LookupNameFormValues>({
+    resolver: zodResolver(lookupNameFormSchema),
+    defaultValues: { name: item.name },
+  });
 
-  const onSubmit = async (values: { name: string }) => {
+  const onSubmit = async (values: LookupNameFormValues) => {
     const result = await updateAction(item.id, values.name);
     if (result.success) {
       toast.success(`${entityLabelCapitalized} renommé.`);
@@ -176,7 +181,7 @@ function EditLookupItemDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Field label="Nom" htmlFor="name" required error={errors.name?.message}>
-            <Input id="name" {...register("name", { required: "Le nom est requis." })} />
+            <Input id="name" {...register("name")} />
           </Field>
           {item.usageCount > 0 && (
             <p className="text-xs text-muted-foreground">
@@ -205,15 +210,17 @@ function DeleteLookupItemButton({
   entityLabel: string;
   deleteAction: (id: string) => Promise<LookupActionResult>;
 }) {
-  const [pending, setPending] = useState(false);
+  const [pending, startTransition] = useTransition();
 
-  const onConfirm = async () => {
-    setPending(true);
-    const result = await deleteAction(item.id);
-    setPending(false);
-    if (!result.success) {
-      toast.error(result.error);
-    }
+  const onConfirm = () => {
+    startTransition(async () => {
+      const result = await deleteAction(item.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`${item.name} supprimé.`);
+    });
   };
 
   return (

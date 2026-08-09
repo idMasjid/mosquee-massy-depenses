@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,29 +36,29 @@ export function StatusActions({
 }) {
   const [target, setTarget] = useState<ExpenseStatus | null>(null);
   const [note, setNote] = useState("");
-  const [pending, setPending] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   const transitions = availableTransitions(role, status);
   if (transitions.length === 0) return null;
 
   const requiresNote = target ? transitionRequiresNote(role, status, target) : false;
 
-  const confirm = async () => {
+  const confirm = () => {
     if (!target) return;
     if (requiresNote && !note.trim()) {
       toast.error("Une note est requise pour cette action.");
       return;
     }
-    setPending(true);
-    const result = await transitionExpense({ expenseId, toStatus: target, note: note || undefined });
-    setPending(false);
-    if (result.success) {
-      toast.success(`Statut mis à jour: ${STATUS_LABELS[target]}`);
-      setTarget(null);
-      setNote("");
-    } else {
-      toast.error(result.error);
-    }
+    startTransition(async () => {
+      const result = await transitionExpense({ expenseId, toStatus: target, note: note || undefined });
+      if (result.success) {
+        toast.success(`Statut mis à jour: ${STATUS_LABELS[target]}`);
+        setTarget(null);
+        setNote("");
+      } else {
+        toast.error(result.error);
+      }
+    });
   };
 
   return (
