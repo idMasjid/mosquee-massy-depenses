@@ -44,6 +44,42 @@ function buildTransitionData(toStatus: ExpenseStatus, userId: string, note: stri
   return data;
 }
 
+// budgetLineId and rubriqueLabel are plain columns (not a DB-enforced FK for
+// rubriqueLabel, and an unchecked one for budgetLineId), so a bad value from
+// a stale form or a tampered request would otherwise either throw an uncaught
+// FK error (invalid budgetLineId) or silently write a category that isn't in
+// the project's allowed list (rubriqueLabel). allowLegacyUnlinked keeps this
+// from rejecting an untouched legacy/imported expense whose category was
+// since renamed or removed from Catégories — see expense-form.tsx's
+// "showUnlinked" case.
+async function validateBudgetAssignment(
+  projectId: string,
+  rubriqueLabel: string,
+  budgetLineId: string | undefined,
+  allowLegacyUnlinked: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (budgetLineId) {
+    const budgetLine = await prisma.budgetLine.findUnique({ where: { id: budgetLineId } });
+    if (!budgetLine || budgetLine.projectId !== projectId) {
+      return { ok: false, error: "Ligne budgétaire invalide pour ce projet." };
+    }
+    if (budgetLine.rubrique !== rubriqueLabel) {
+      return { ok: false, error: "La catégorie ne correspond pas à la ligne budgétaire sélectionnée." };
+    }
+    return { ok: true };
+  }
+
+  if (allowLegacyUnlinked) return { ok: true };
+
+  const allowed = await prisma.allowedRubrique.findUnique({
+    where: { projectId_rubrique: { projectId, rubrique: rubriqueLabel } },
+  });
+  if (!allowed) {
+    return { ok: false, error: "Cette catégorie n'est pas autorisée pour ce projet." };
+  }
+  return { ok: true };
+}
+
 function computeCents(input: ExpenseFormValues) {
   const unitPriceHTCents = input.unitPriceHT != null ? toCents(input.unitPriceHT) : null;
   const deliveryFeeCents = toCents(input.deliveryFee ?? 0);
@@ -76,6 +112,14 @@ export async function createExpense(raw: unknown): Promise<ActionResult> {
   if (!canCreateWithStatus(session.user.role, input.status)) {
     return { success: false, error: "Vous n'êtes pas autorisé à créer une dépense avec ce statut." };
   }
+
+  const assignment = await validateBudgetAssignment(
+    input.projectId,
+    input.rubriqueLabel,
+    input.budgetLineId || undefined,
+    false,
+  );
+  if (!assignment.ok) return { success: false, error: assignment.error };
 
   const cents = computeCents(input);
 
@@ -133,6 +177,16 @@ export async function updateExpense(id: string, raw: unknown): Promise<ActionRes
     return { success: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
   const input = parsed.data;
+
+  const allowLegacyUnlinked = input.projectId === expense.projectId && input.rubriqueLabel === expense.rubriqueLabel;
+  const assignment = await validateBudgetAssignment(
+    input.projectId,
+    input.rubriqueLabel,
+    input.budgetLineId || undefined,
+    allowLegacyUnlinked,
+  );
+  if (!assignment.ok) return { success: false, error: assignment.error };
+
   const cents = computeCents(input);
 
   await prisma.expense.update({
