@@ -176,6 +176,11 @@ model Expense {
   @@index([projectId])
   @@index([budgetLineId])
   @@index([entryDate])
+  @@index([invoiceDate])
+  @@index([supplierName])
+  @@index([paymentType])
+  @@index([purchaseType])
+  @@index([rubriqueLabel])
 }
 
 model Attachment {
