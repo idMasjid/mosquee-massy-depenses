@@ -21,8 +21,12 @@ function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function invoiceKey(supplierName: string, invoiceNumber: string): string {
-  return `${normalize(supplierName)}::${normalize(invoiceNumber)}`;
+// A single invoice commonly covers several distinct line items (one per
+// product) — keying on supplier+invoice number alone would flag every line
+// after the first as a duplicate of it, so the product and amount must also
+// match for two rows to really be the same line re-imported.
+function invoiceKey(supplierName: string, invoiceNumber: string, productTitle: string, totalTTCCents: number): string {
+  return `${normalize(supplierName)}::${normalize(invoiceNumber)}::${normalize(productTitle)}::${totalTTCCents}`;
 }
 
 // Fallback signature for rows without an invoice number — same supplier, same
@@ -83,7 +87,7 @@ export async function importExpenses(formData: FormData): Promise<ImportResult> 
   const seenByInvoice = new Set<string>();
   const seenByFingerprint = new Set<string>();
   for (const e of existingExpenses) {
-    if (e.invoiceNumber) seenByInvoice.add(invoiceKey(e.supplierName, e.invoiceNumber));
+    if (e.invoiceNumber) seenByInvoice.add(invoiceKey(e.supplierName, e.invoiceNumber, e.productTitle, e.totalTTCCents));
     seenByFingerprint.add(fingerprintKey(e.supplierName, e.entryDate, e.totalTTCCents, e.productTitle));
   }
 
@@ -108,7 +112,7 @@ export async function importExpenses(formData: FormData): Promise<ImportResult> 
 
     const { data } = result;
     const isDuplicate = data.invoiceNumber
-      ? seenByInvoice.has(invoiceKey(data.supplierName, data.invoiceNumber))
+      ? seenByInvoice.has(invoiceKey(data.supplierName, data.invoiceNumber, data.productTitle, data.totalTTCCents))
       : seenByFingerprint.has(fingerprintKey(data.supplierName, data.entryDate, data.totalTTCCents, data.productTitle));
     if (isDuplicate) {
       errors.push(`Ligne ${rowNumber} : doublon détecté (dépense déjà importée pour ce fournisseur), ligne ignorée.`);
@@ -146,7 +150,7 @@ export async function importExpenses(formData: FormData): Promise<ImportResult> 
       console.error(`Import "${file.name}" ligne ${rowNumber} : échec de l'historique de statut`, err);
     }
 
-    if (data.invoiceNumber) seenByInvoice.add(invoiceKey(data.supplierName, data.invoiceNumber));
+    if (data.invoiceNumber) seenByInvoice.add(invoiceKey(data.supplierName, data.invoiceNumber, data.productTitle, data.totalTTCCents));
     seenByFingerprint.add(fingerprintKey(data.supplierName, data.entryDate, data.totalTTCCents, data.productTitle));
     imported++;
   }
