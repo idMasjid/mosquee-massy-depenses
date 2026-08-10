@@ -1,0 +1,39 @@
+# Stack Portainer / Docker Standalone pour l'application "Dépenses — Mosquée
+# de Massy". Aucune directive `build` : l'image est publiée sur GHCR par le
+# workflow GitHub Actions (.github/workflows/docker-publish.yml).
+#
+# Pas de service de base de données séparé : les données sont stockées en
+# SQLite dans un fichier (via Prisma + libSQL), conservé dans le volume
+# nommé `app_data`. Les pièces jointes vivent dans le volume `app_storage`.
+#
+# Pour revenir à une version antérieure : changez IMAGE_TAG (variable
+# Portainer) pour un tag `sha-<sha_git_court>` publié par le workflow, puis
+# redéployez la stack — aucune modification de ce fichier n'est nécessaire.
+
+services:
+  app:
+    image: ghcr.io/idmasjid/mosquee-massy-depenses:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "file:/app/data/dev.db"
+      STORAGE_ROOT: "/app/storage"
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    volumes:
+      - app_data:/app/data
+      - app_storage:/app/storage
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  app_data:
+  app_storage:

@@ -1,0 +1,6 @@
+# Shell scripts must keep LF endings regardless of the checkout OS — a CRLF
+# shebang line breaks execution inside Linux containers ("no such file or
+# directory" on #!/bin/sh).
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf

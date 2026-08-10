@@ -1,0 +1,53 @@
+# Dependencies (reinstalled inside the image)
+node_modules
+npm-debug.log*
+
+# Git
+.git
+.gitignore
+
+# Next.js build output (rebuilt inside the image)
+.next
+out
+/src/generated
+
+# Environment files / secrets — never bake these into an image layer
+.env
+.env.*
+!.env.example
+
+# Local data — must never ship in the image, only ever live in volumes
+dev.db
+/storage
+/prisma/seed-data/*.csv
+
+# The restored working file mentioned earlier in this project, not part of the app
+/import_factures.xlsx
+
+# Logs
+*.log
+
+# Test / coverage
+/coverage
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# Docker meta files themselves
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Misc build artifacts
+*.tsbuildinfo
+next-env.d.ts
+
+# Claude Code project files
+.claude
+.agents
+AGENTS.md
+CLAUDE.md
+DEPLOIEMENT_PORTAINER.md
