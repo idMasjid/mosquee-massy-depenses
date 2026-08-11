@@ -25,6 +25,9 @@ RUN npm run build && rm -rf .next/cache
 FROM base AS runner
 ENV NODE_ENV=production
 RUN addgroup -S nodejs -g 1001 && adduser -S nextjs -u 1001 -G nodejs
+# su-exec drops root privileges after the entrypoint fixes ownership of the
+# mounted data volumes — see docker-entrypoint.sh.
+RUN apk add --no-cache su-exec
 
 COPY --from=deps-prod /app/node_modules ./node_modules
 COPY --from=builder /app/public ./public
@@ -35,7 +38,11 @@ COPY prisma.config.ts package.json docker-entrypoint.sh ./
 
 RUN chmod +x ./docker-entrypoint.sh && chown -R nextjs:nodejs /app
 
-USER nextjs
+# Stays root here on purpose: named volumes are created root-owned on first
+# mount, regardless of this chown (which only affects the image layer, not
+# volumes attached later at runtime). docker-entrypoint.sh fixes their
+# ownership at startup, then drops to `nextjs` via su-exec before running
+# migrations or the server — the app itself never runs as root.
 
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

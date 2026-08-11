@@ -5,6 +5,13 @@ DB_PATH="${DATABASE_URL#file:}"
 DATA_DIR="$(dirname "$DB_PATH")"
 mkdir -p "$DATA_DIR" "$STORAGE_ROOT"
 
+# Named volumes are created root-owned on first mount, no matter what the
+# image's Dockerfile chown'd at build time. Running as root here to fix that,
+# then dropping to the unprivileged `nextjs` user via su-exec for everything
+# else — the app itself never runs as root. Non-recursive: only the mount
+# points need fixing, files the app creates afterward are already nextjs-owned.
+chown nextjs:nodejs "$DATA_DIR" "$STORAGE_ROOT"
+
 # `flock` (blocking, no -n) serializes migrations across containers sharing
 # the same data volume: if two instances start at once, the second waits for
 # the first to finish instead of racing it. `prisma migrate deploy` is
@@ -12,11 +19,11 @@ mkdir -p "$DATA_DIR" "$STORAGE_ROOT"
 LOCK_FILE="$DATA_DIR/.migrate.lock"
 echo "Applying database migrations (lock: $LOCK_FILE)..."
 if command -v flock >/dev/null 2>&1; then
-  flock "$LOCK_FILE" -c "node_modules/.bin/prisma migrate deploy"
+  su-exec nextjs flock "$LOCK_FILE" -c "node_modules/.bin/prisma migrate deploy"
 else
   echo "Warning: flock not available on this image, migrating without a lock." >&2
-  node_modules/.bin/prisma migrate deploy
+  su-exec nextjs node_modules/.bin/prisma migrate deploy
 fi
 
 echo "Starting Next.js on ${HOSTNAME:-0.0.0.0}:${PORT:-3000}..."
-exec node_modules/.bin/next start -p "${PORT:-3000}" -H "${HOSTNAME:-0.0.0.0}"
+exec su-exec nextjs node_modules/.bin/next start -p "${PORT:-3000}" -H "${HOSTNAME:-0.0.0.0}"
