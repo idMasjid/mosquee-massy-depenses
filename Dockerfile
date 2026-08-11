@@ -7,12 +7,16 @@ WORKDIR /app
 # ---- deps: full install (incl. devDependencies), needed to run `next build` -
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+# Retried once: under QEMU emulation (cross-building linux/arm64 on an amd64
+# runner), esbuild's postinstall occasionally spawns its own just-written
+# binary before the write is fully visible, failing with ETXTBSY. A second
+# `npm ci` is a plain idempotent no-op when the first attempt succeeded.
+RUN npm ci || npm ci
 
 # ---- deps-prod: production-only install, shipped in the final image -----
 FROM base AS deps-prod
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev || npm ci --omit=dev
 
 # ---- builder: generate the Prisma client and compile the app ------------
 FROM base AS builder
