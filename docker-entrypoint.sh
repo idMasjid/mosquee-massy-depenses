@@ -16,10 +16,16 @@ chown nextjs:nodejs "$DATA_DIR" "$STORAGE_ROOT"
 # the same data volume: if two instances start at once, the second waits for
 # the first to finish instead of racing it. `prisma migrate deploy` is
 # idempotent, so a container that only had to wait its turn exits cleanly.
+#
+# Command passed as argv (no `-c "string"`): flock's `-c` runs the command
+# through `$SHELL -c`, and su-exec sets SHELL from the target account's
+# passwd entry — `/sbin/nologin` for a system user, which just prints "This
+# account is not available" and exits. Passing argv directly execs the
+# binary with no shell involved, sidestepping that entirely.
 LOCK_FILE="$DATA_DIR/.migrate.lock"
 echo "Applying database migrations (lock: $LOCK_FILE)..."
 if command -v flock >/dev/null 2>&1; then
-  su-exec nextjs flock "$LOCK_FILE" -c "node_modules/.bin/prisma migrate deploy"
+  su-exec nextjs flock "$LOCK_FILE" node_modules/.bin/prisma migrate deploy
 else
   echo "Warning: flock not available on this image, migrating without a lock." >&2
   su-exec nextjs node_modules/.bin/prisma migrate deploy
