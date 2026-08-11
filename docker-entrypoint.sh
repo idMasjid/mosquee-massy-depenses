@@ -26,9 +26,17 @@ LOCK_FILE="$DATA_DIR/.migrate.lock"
 echo "Applying database migrations (lock: $LOCK_FILE)..."
 if command -v flock >/dev/null 2>&1; then
   su-exec nextjs flock "$LOCK_FILE" node_modules/.bin/prisma migrate deploy
+  # Same lock, reused: `prisma migrate deploy` never seeds (only `migrate dev`
+  # does), so without this the DB comes up schema-only and no one can log in.
+  # `seed.ts` is all upserts/count-guards, safe to (re)run on every boot; the
+  # lock just keeps two containers starting at once from double-importing
+  # the CSV-sourced historical expenses.
+  echo "Seeding initial data (admin account, budgets)..."
+  su-exec nextjs flock "$LOCK_FILE" node_modules/.bin/tsx prisma/seed.ts
 else
   echo "Warning: flock not available on this image, migrating without a lock." >&2
   su-exec nextjs node_modules/.bin/prisma migrate deploy
+  su-exec nextjs node_modules/.bin/tsx prisma/seed.ts
 fi
 
 echo "Starting Next.js on ${HOSTNAME:-0.0.0.0}:${PORT:-3000}..."
