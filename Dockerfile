@@ -37,6 +37,9 @@ COPY --from=deps-prod /app/node_modules ./node_modules
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/src/generated ./src/generated
+# prisma/seed.ts runs via tsx straight from source at container startup (see
+# docker-entrypoint.sh), so it needs its non-generated src imports on disk too.
+COPY --from=builder /app/src/lib ./src/lib
 COPY --from=builder /app/prisma ./prisma
 COPY prisma.config.ts package.json docker-entrypoint.sh ./
 
