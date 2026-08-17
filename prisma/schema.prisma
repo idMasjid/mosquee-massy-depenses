@@ -19,6 +19,9 @@ model User {
   role          String
   isActive      Boolean  @default(true)
   isPlaceholder Boolean  @default(false)
+  // Créé automatiquement lors d'une 1ère connexion Google inconnue ; en
+  // attente qu'un admin choisisse un rôle et active le compte.
+  isPending     Boolean  @default(false)
   image         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

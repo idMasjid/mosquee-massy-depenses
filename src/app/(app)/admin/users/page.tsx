@@ -9,7 +9,10 @@ import { ROLE_LABELS, type Role } from "@/lib/constants";
 export default async function AdminUsersPage() {
   await requireRole(["ADMIN"]);
 
-  const users = await prisma.user.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }] });
+  const users = await prisma.user.findMany({
+    orderBy: [{ isPending: "desc" }, { isActive: "desc" }, { name: "asc" }],
+  });
+  const pendingCount = users.filter((u) => u.isPending).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -18,6 +21,11 @@ export default async function AdminUsersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Utilisateurs</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Gérez les membres autorisés à se connecter et leur rôle.
+            {pendingCount > 0 && (
+              <span className="ml-2 font-medium text-amber-600 dark:text-amber-400">
+                {pendingCount} demande{pendingCount > 1 ? "s" : ""} en attente d&apos;approbation
+              </span>
+            )}
           </p>
         </div>
         <NewUserDialog />
@@ -41,7 +49,11 @@ export default async function AdminUsersPage() {
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell>{ROLE_LABELS[user.role as Role]}</TableCell>
                 <TableCell>
-                  {user.isPlaceholder ? (
+                  {user.isPending ? (
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                      En attente d&apos;approbation
+                    </span>
+                  ) : user.isPlaceholder ? (
                     <span className="text-xs text-muted-foreground">Compte historique (import)</span>
                   ) : user.isActive ? (
                     <span className="text-xs text-emerald-600 dark:text-emerald-400">Actif</span>

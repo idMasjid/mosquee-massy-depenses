@@ -46,9 +46,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers,
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (!user.email) return false;
       const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+
+      // Connexion Google avec un email jamais vu : on crée une demande en
+      // attente plutôt que de refuser directement, pour qu'un admin puisse
+      // l'approuver depuis /admin/users (voir isPending dans le schéma).
+      if (account?.provider === "google" && !dbUser) {
+        await prisma.user.create({
+          data: {
+            email: user.email,
+            name: user.name ?? user.email,
+            image: user.image,
+            role: "LECTEUR",
+            isActive: false,
+            isPending: true,
+          },
+        });
+        return "/auth/pending";
+      }
+
+      if (dbUser?.isPending) {
+        return "/auth/pending";
+      }
+
       if (!dbUser || !dbUser.isActive || dbUser.isPlaceholder) {
         return "/auth/error?error=AccessDenied";
       }

@@ -56,6 +56,9 @@ export async function updateUser(raw: unknown): Promise<ActionResult> {
       name,
       role,
       isActive,
+      // Un enregistrement via ce formulaire vaut décision admin (approbation
+      // si isActive, refus sinon) : la demande n'est plus "en attente".
+      isPending: false,
       ...(newPassword ? { passwordHash: hashPassword(newPassword) } : {}),
     },
   });
