@@ -20,6 +20,11 @@ services:
       DATABASE_URL: "file:/app/data/dev.db"
       STORAGE_ROOT: "/app/storage"
       AUTH_SECRET: ${AUTH_SECRET}
+      # URL publique de l'app (https://votre-domaine). Obligatoire dès que
+      # Google sign-in est activé : sans elle, Auth.js construit l'URL de
+      # callback à partir de ce qu'il voit en interne (ex. 0.0.0.0:3000) au
+      # lieu du domaine réel derrière le reverse proxy, ce que Google refuse.
+      AUTH_URL: ${AUTH_URL:-}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
