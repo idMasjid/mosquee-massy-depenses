@@ -4,6 +4,8 @@ import Credentials from "next-auth/providers/credentials";
 import type { Provider } from "@auth/core/providers";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
+import { isLocalAuthEnabled } from "@/lib/settings";
+import { logLoginEvent } from "@/lib/login-log";
 import type { Role } from "@/lib/constants";
 
 const providers: Provider[] = [
@@ -17,9 +19,20 @@ const providers: Provider[] = [
       const password = typeof credentials?.password === "string" ? credentials.password : null;
       if (!email || !password) return null;
 
+      if (!(await isLocalAuthEnabled())) {
+        await logLoginEvent({ email, provider: "credentials", status: "DENIED" });
+        return null;
+      }
+
       const dbUser = await prisma.user.findUnique({ where: { email } });
-      if (!dbUser || !dbUser.isActive || dbUser.isPlaceholder) return null;
-      if (!verifyPassword(password, dbUser.passwordHash)) return null;
+      if (!dbUser || !dbUser.isActive || dbUser.isPlaceholder) {
+        await logLoginEvent({ email, provider: "credentials", status: "DENIED" });
+        return null;
+      }
+      if (!verifyPassword(password, dbUser.passwordHash)) {
+        await logLoginEvent({ email, name: dbUser.name, provider: "credentials", status: "DENIED" });
+        return null;
+      }
 
       return { id: dbUser.id, email: dbUser.email, name: dbUser.name, image: dbUser.image };
     },
@@ -48,13 +61,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false;
+      const provider = account?.provider === "google" ? "google" : "credentials";
       const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
 
       // Connexion Google avec un email jamais vu : on crée une demande en
       // attente plutôt que de refuser directement, pour qu'un admin puisse
       // l'approuver depuis /admin/users (voir isPending dans le schéma).
       if (account?.provider === "google" && !dbUser) {
-        await prisma.user.create({
+        const created = await prisma.user.create({
           data: {
             email: user.email,
             name: user.name ?? user.email,
@@ -64,16 +78,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             isPending: true,
           },
         });
+        await logLoginEvent({ email: created.email, name: created.name, provider, status: "PENDING" });
         return "/auth/pending";
       }
 
       if (dbUser?.isPending) {
+        await logLoginEvent({ email: dbUser.email, name: dbUser.name, provider, status: "PENDING" });
         return "/auth/pending";
       }
 
       if (!dbUser || !dbUser.isActive || dbUser.isPlaceholder) {
+        await logLoginEvent({ email: user.email, name: dbUser?.name, provider, status: "DENIED" });
         return "/auth/error?error=AccessDenied";
       }
+      await logLoginEvent({ email: dbUser.email, name: dbUser.name, provider, status: "SUCCESS" });
       return true;
     },
     async jwt({ token }) {

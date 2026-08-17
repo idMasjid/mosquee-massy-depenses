@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireSession } from "@/lib/rbac";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { setLocalAuthEnabled as persistLocalAuthEnabled } from "@/lib/settings";
+import { isGoogleSignInEnabled } from "@/auth";
 import { userFormSchema, userUpdateSchema, changePasswordSchema } from "@/lib/validations/user";
 import type { ActionResult } from "@/lib/actions/expense-actions";
 
@@ -63,6 +65,22 @@ export async function updateUser(raw: unknown): Promise<ActionResult> {
     },
   });
   revalidatePath("/admin/users");
+  return { success: true };
+}
+
+export async function setLocalAuthEnabled(enabled: boolean): Promise<ActionResult> {
+  await requireRole(["ADMIN"]);
+
+  if (!enabled && !isGoogleSignInEnabled) {
+    return {
+      success: false,
+      error: "Impossible de désactiver la connexion locale : Google sign-in n'est pas configuré (risque de blocage total des accès).",
+    };
+  }
+
+  await persistLocalAuthEnabled(enabled);
+  revalidatePath("/admin/users");
+  revalidatePath("/login");
   return { success: true };
 }
 

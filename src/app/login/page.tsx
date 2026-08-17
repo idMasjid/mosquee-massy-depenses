@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, signIn, isGoogleSignInEnabled } from "@/auth";
+import { isLocalAuthEnabled } from "@/lib/settings";
 import { Button } from "@/components/ui/button";
 import { LoginForm } from "@/components/auth/login-form";
 import { Logo } from "@/components/layout/logo";
@@ -9,6 +10,7 @@ export default async function LoginPage() {
   if (session?.user?.isActive) {
     redirect("/dashboard");
   }
+  const localAuthEnabled = await isLocalAuthEnabled();
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/30 p-6">
@@ -19,15 +21,17 @@ export default async function LoginPage() {
           <p className="mt-1 text-sm text-muted-foreground">Mosquée de Massy</p>
         </div>
 
-        <LoginForm />
+        {localAuthEnabled && <LoginForm />}
 
         {isGoogleSignInEnabled && (
           <>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="h-px flex-1 bg-border" />
-              ou
-              <div className="h-px flex-1 bg-border" />
-            </div>
+            {localAuthEnabled && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                ou
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            )}
             <form
               action={async () => {
                 "use server";

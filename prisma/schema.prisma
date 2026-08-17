@@ -35,6 +35,38 @@ model User {
   statusEvents        ExpenseStatusEvent[]
 }
 
+// Ligne unique de configuration globale (id fixe "singleton").
+model AppSettings {
+  id               String   @id @default("singleton")
+  // Connexion par email + mot de passe. Un admin peut la couper pour forcer
+  // Google uniquement (le formulaire d'action refuse de la couper si Google
+  // sign-in n'est pas configuré, pour éviter un verrouillage total).
+  localAuthEnabled Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+}
+
+// Historique des tentatives de connexion (succès, refus, mise en attente),
+// affiché en lecture seule dans /admin/users. Pas de FK vers User : on garde
+// une trace même pour des emails inconnus/refusés.
+model LoginEvent {
+  id     String @id @default(cuid())
+  email  String
+  name   String?
+  // provider: "google" | "credentials"
+  provider String
+  // status: "SUCCESS" | "DENIED" | "PENDING"
+  status String
+
+  ip        String?
+  location  String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([email])
+}
+
 model Project {
   id             String   @id @default(cuid())
   name           String   @unique
